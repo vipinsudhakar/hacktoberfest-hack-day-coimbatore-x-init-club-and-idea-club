@@ -2,7 +2,7 @@ import type { EvaluateRequest, EvaluateResponse } from "@/lib/api";
 import { splitCriteria } from "@/lib/criteria";
 import { generateJson } from "@/lib/gemma";
 import { errorResponse, gemmaErrorResponse } from "@/lib/http";
-import { decideMatch } from "@/lib/match";
+import { decideMatch, linkMedicine } from "@/lib/match";
 import { assessmentSchema, evaluatePrompt } from "@/lib/prompts";
 
 export const maxDuration = 60;
@@ -41,7 +41,10 @@ export async function POST(request: Request) {
       ),
     );
     const plainSummary = replies.find((r) => r.plainSummary)?.plainSummary ?? "";
-    const match = decideMatch(trial.nctId, plainSummary, criteria, replies.flatMap((r) => r.results));
+    const assessments = replies
+      .flatMap((r) => r.results)
+      .map((a) => ({ ...a, medicine: linkMedicine(a.medicine, profile.medications ?? []) }));
+    const match = decideMatch(trial.nctId, plainSummary, criteria, assessments);
     return Response.json({ match } satisfies EvaluateResponse);
   } catch (err) {
     console.error(`evaluate ${trial.nctId} failed:`, err);

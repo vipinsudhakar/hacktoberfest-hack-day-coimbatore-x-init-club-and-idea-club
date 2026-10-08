@@ -1,4 +1,4 @@
-import type { Criterion, CriterionKind, CriterionResult, MatchStatus, TrialMatch, Verdict } from "./types";
+import type { Criterion, CriterionKind, CriterionResult, MatchStatus, Medication, TrialMatch, Verdict } from "./types";
 
 /** What Gemma says about one rule: is the rule's statement true for this patient? */
 export interface RuleAssessment {
@@ -19,6 +19,19 @@ export function toVerdict(kind: CriterionKind, holds: RuleAssessment["holds"]): 
   if (holds === "unknown") return "unknown";
   const satisfied = kind === "inclusion" ? holds === "yes" : holds === "no";
   return satisfied ? "pass" : "fail";
+}
+
+/**
+ * Gemma names the medicine a rule is about; keep that only when it is one of the patient's
+ * current medications, and report it by that medication's generic name.
+ */
+export function linkMedicine(named: string | null, medications: Medication[]): string | null {
+  const n = named?.trim().toLowerCase();
+  if (!n) return null;
+  const match = medications.find((m) =>
+    [m.genericName, m.name].some((label) => label && (label.toLowerCase().includes(n) || n.includes(label.toLowerCase()))),
+  );
+  return match ? (match.genericName ?? match.name).toLowerCase() : null;
 }
 
 export function decideMatch(

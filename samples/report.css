@@ -13,3 +13,8 @@ ol, ul { margin: 4px 0; padding-left: 22px; }
 li { margin: 2px 0; }
 p { margin: 4px 0; }
 .sign { margin-top: 22px; display: flex; justify-content: space-between; font-size: 14px; }
+.rx { font-size: 34px; font-weight: 700; color: #0b5563; margin: 6px 0 4px; font-family: Georgia, serif; }
+table.meds { width: 100%; border-collapse: collapse; font-size: 14px; margin: 6px 0 10px; }
+table.meds th, table.meds td { border: 1px solid #bbb; padding: 6px 8px; text-align: left; vertical-align: top; }
+table.meds th { background: #eef5f6; }
+.stopped { margin-top: 8px; padding: 8px 10px; border-left: 4px solid #b42318; background: #fdf2f1; font-size: 14px; }

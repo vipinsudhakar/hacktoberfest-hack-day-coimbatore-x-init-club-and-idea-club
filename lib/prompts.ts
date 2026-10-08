@@ -117,7 +117,9 @@ export function evaluatePrompt(profile: PatientProfile, trial: Trial, criteria: 
     .map((c) => `[${c.id}] (${c.kind}) ${c.group ? `${c.group}: ` : ""}${c.text}`)
     .join("\n");
 
-  return `You are helping an oncologist pre-screen a patient for a clinical trial. Judge each eligibility rule against the patient profile.
+  const today = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "Asia/Kolkata" });
+
+  return `You are helping an oncologist pre-screen a patient for a clinical trial. Judge each eligibility rule against the patient profile. Today is ${today}.
 
 TRIAL ${trial.nctId}: ${trial.title}
 Conditions: ${trial.conditions.join("; ") || "not listed"}
@@ -135,7 +137,7 @@ For every rule, set "holds":
 - Exclusion rule: does this exclusion APPLY to the patient? "yes", "no", or "unknown".
 - For exclusions about other illnesses or history (autoimmune disease, lung disease, infections, heart disease, other cancers), answer "no" when the profile's comorbidities and history don't mention it, and say "not mentioned in the reports" in the reason.
 - Use medical knowledge to connect terms: stage IV means metastatic; HER2 IHC 0 or 1+ is HER2-negative; palbociclib, ribociclib and abemaciclib are CDK4/6 inhibitors; letrozole, anastrozole, exemestane, fulvestrant and tamoxifen are endocrine therapies; osimertinib, gefitinib and erlotinib are EGFR TKIs. Work out time intervals from the dates given.
-- Rules about other medicines (e.g. "strong CYP3A4 inhibitors or inducers", "systemic corticosteroids", "anticoagulants", "other investigational drugs") must be checked against the profile's medications by drug class: clarithromycin, itraconazole and ketoconazole are strong CYP3A4 inhibitors; rifampicin, carbamazepine and phenytoin are strong CYP3A4 inducers. If a short course ends before the trial would start, say so in the reason.
+- Rules about other medicines (e.g. "strong CYP3A4 inhibitors or inducers", "systemic corticosteroids", "anticoagulants", "other investigational drugs") must be checked against the profile's medications by drug class: clarithromycin, itraconazole and ketoconazole are strong CYP3A4 inhibitors; rifampicin, carbamazepine and phenytoin are strong CYP3A4 inducers. Compare a medicine's end date (until) with today: a course that has already ended does not count as current use, but mention any washout period the rule asks for in the reason.
 - Never invent facts that are not in the profile.
 
 Other fields:

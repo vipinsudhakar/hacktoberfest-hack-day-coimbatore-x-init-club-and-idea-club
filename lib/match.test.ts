@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { decideMatch, toVerdict, type RuleAssessment } from "./match.ts";
+import { decideMatch, linkMedicine, toVerdict, type RuleAssessment } from "./match.ts";
 import type { Criterion } from "./types.ts";
 
 const rules: Criterion[] = [
@@ -51,4 +51,16 @@ test("a failed rule -> not eligible, listed as a blocker; missing assessments be
   assert.equal(m.status, "not_eligible");
   assert.deepEqual(m.blockers.map((b) => b.id), [3]);
   assert.equal(m.results.find((r) => r.id === 2)!.verdict, "unknown");
+});
+
+test("medicine tags are kept only for current medications, by generic name", () => {
+  const meds = [
+    { name: "Tab. Claribid 500 mg", genericName: "Clarithromycin", dose: null, until: null, reason: null },
+    { name: "Tab. Tegretol 200 mg", genericName: null, dose: null, until: null, reason: null },
+  ];
+  assert.equal(linkMedicine("clarithromycin", meds), "clarithromycin");
+  assert.equal(linkMedicine("Claribid", meds), "clarithromycin");
+  assert.equal(linkMedicine("tegretol", meds), "tab. tegretol 200 mg");
+  assert.equal(linkMedicine("letrozole", meds), null);
+  assert.equal(linkMedicine(null, meds), null);
 });
