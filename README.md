@@ -27,51 +27,102 @@ Cancer treatment pushes many Indian families into debt, while trial slots for fr
 
 ## Solution
 
-[Describe the proposed solution and how it addresses the problem.]
+TrialBridge turns a patient's reports into a short list of trials worth asking their oncologist about, and shows its reasoning for every rule.
+
+1. The patient or caregiver adds photos of the reports (pathology, scans, clinic summaries, blood tests).
+2. Gemma 4 reads them into a structured profile: cancer type, stage, biomarkers, every line of treatment and how it went, ECOG, labs. It also shows the exact text it read each value from.
+3. The user checks and corrects the profile. Nothing is matched until a person has reviewed what the AI read.
+4. TrialBridge pulls every trial for that cancer that is **recruiting in India right now** from the live ClinicalTrials.gov registry, and drops the ones the patient can't join because of age or sex.
+5. For each trial, Gemma 4 judges the patient against **each eligibility rule separately**. Every trial ends up as *likely match*, *possible match* (with the open points turned into questions for the doctor) or *not eligible* (with the rule that rules it out).
+6. The results list the Indian hospitals running each trial and the trial contacts, and can be printed as a one-page summary to take to the oncologist.
 
 ### Key Features
 
-- [Feature 1]
-- [Feature 2]
-- [Feature 3]
-- [Feature 4]
+- **Reads real reports:** photos or screenshots of medical documents, read by an open-weight multimodal model.
+- **Human check before matching:** an editable profile with "what Gemma read" evidence quotes.
+- **Live registry data:** recruiting trials with sites in India from the ClinicalTrials.gov API, with a saved copy as a fallback when the registry can't be reached.
+- **Rule-by-rule explanations:** a ✓ / ✗ / ? checklist for every rule, a plain-language reason for each, and the profile value it relied on.
+- **Questions for the doctor:** rules the reports don't settle become plain questions, e.g. "What is my ECOG performance status?".
+- **Printable oncologist summary:** the profile, the likely and possible trials, their Indian sites and contacts, and the open questions.
+- **Never claims eligibility:** results say "may qualify, confirm with your oncologist". Rules only the trial team can check (consent, contraception, screening tests) are shown separately and never decide the result.
 
 ## Innovation and Differentiation
 
-[Explain what is innovative about the approach and how it differs from existing or conventional solutions.]
+- **Explainable matching instead of a verdict.** Research prototypes have shown that language models can match patients to trials. TrialBridge makes every decision checkable: the trial's rules are split into individual rules by plain code, and the model judges each one against the profile with a reason and evidence. One rule that fails makes the trial "not eligible", and the UI shows exactly which one.
+- **Starts from what patients actually have.** That's photos of paper reports, not a structured medical record.
+- **Focused on India.** It only shows trials that are recruiting with a site in India, and names the hospitals.
+- **Open-weight model.** Gemma 4 is released under Apache 2.0, so a hospital could run the same model on its own servers and keep reports in-house. This build calls Gemma 4 through the hosted Gemini API.
+- **Hard to do with a chat assistant.** It pulls live registry data, checks every rule of 20+ trials in parallel, and produces a consistent, printable result.
 
 ## Technical Implementation
 
 ### Architecture
 
-[Add the system architecture or workflow Mermaid diagram here.]
+```mermaid
+flowchart LR
+  U[Patient or caregiver] -->|photos of reports| UI[Next.js UI - resizes photos in the browser]
+  UI -->|POST /api/extract| X[Extract route]
+  X -->|images + prompt| G[(Gemma 4 26B A4B via Gemini API)]
+  G -->|patient profile JSON| X
+  X --> UI
+  UI -->|reviewed profile - POST /api/trials| T[Trials route]
+  T -->|cancer type, India, recruiting| CT[(ClinicalTrials.gov API v2)]
+  T -.->|registry unreachable| S[(Saved registry snapshot)]
+  T -->|candidates filtered by age and sex| UI
+  UI -->|one trial per request, 6 in parallel - POST /api/evaluate| E[Evaluate route]
+  E -->|eligibility text| R[Rule splitter]
+  E -->|profile + numbered rules| G
+  G -->|holds yes / no / unknown per rule| E
+  E -->|status, blockers, questions| UI
+  UI --> P[Results and printable oncologist summary]
+```
 
 ### Technology Stack
 
 
 | Category        | Technologies                |
 | --------------- | --------------------------- |
-| Frontend        | [Technologies / N/A]        |
-| Backend         | [Technologies / N/A]        |
-| Database        | [Technologies / N/A]        |
-| AI / ML         | [Models / frameworks / N/A] |
-| Infrastructure  | [Technologies / N/A]        |
-| APIs / Services | [Services / N/A]            |
+| Frontend        | Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4 |
+| Backend         | Next.js route handlers (Node.js), zod for validating model output |
+| Database        | N/A (a JSON snapshot of the registry is bundled as an offline fallback) |
+| AI / ML         | Gemma 4 (`gemma-4-26b-a4b-it`) through the Google Gen AI SDK (`@google/genai`) |
+| Infrastructure  | [Vercel – deployment in progress] |
+| APIs / Services | ClinicalTrials.gov API v2, Gemini API |
 
 
 If a category or technology is not implemented in the project, specify `N/A` instead of leaving the field blank.
 
 ### How It Works
 
-[Explain the major components of the system and how they interact.]
+- **`app/api/extract`** sends the report images and an extraction prompt to Gemma 4 and returns a `PatientProfile`. The prompt tells the model to copy values as written, use null for anything not stated, and quote its evidence.
+- **`app/api/trials`** searches ClinicalTrials.gov for recruiting trials with a site in India (`lib/ctgov.ts`). It widens the search term if a very specific one finds nothing (e.g. "invasive ductal carcinoma of breast" becomes "breast cancer"), filters by age and sex, and puts trials for the patient's stage first. If the registry can't be reached, it answers from `data/ctgov-snapshot.json` (refresh with `npm run snapshot`).
+- **`lib/criteria.ts`** splits each trial's loosely formatted eligibility text into individual inclusion and exclusion rules. It handles nested sub-rules, numbered lists, escaped characters and "other criteria may apply" notes.
+- **`app/api/evaluate`** checks one trial: Gemma 4 receives the profile and the numbered rules and answers, for each rule, whether it holds for the patient (`yes` / `no` / `unknown`), plus a reason, evidence and a question for unknowns. **`lib/match.ts`** turns that into pass / fail / unknown per rule and a trial status.
+- **The UI** (`components/`) runs the evaluate calls six at a time and shows results as they arrive. It also holds the profile editor and the print layout.
 
 ### Technical Decisions
 
-[Explain important architectural, algorithmic, or engineering decisions made during development.]
+- **The model judges rules, code decides the outcome.** Splitting rules and combining verdicts are plain, unit-tested code. The model only answers one narrow question per rule, which keeps results explainable and consistent.
+- **No double negatives.** For an exclusion rule the model is asked whether the exclusion *applies*, not whether the patient "passes" it. `lib/match.ts` flips the answer, which avoids a common source of errors with exclusion criteria.
+- **One trial per request, several in parallel from the browser.** The UI shows progress, no single server request runs long, and one failed trial can be retried without redoing the rest.
+- **Minimal thinking mode.** With the model's default settings, checking 4–5 trials in parallel took about 3 minutes per trial. With thinking set to minimal (the medical reasoning hints are written into the prompt instead), one check took 26 s and used no thinking tokens, and 4 trials finished in 42 s in parallel. Each Gemma call also has a 50 s timeout.
+- **Lenient parsing, strict use.** Replies are validated with zod. A malformed field falls back to "not stated", and an unusable reply is retried once with the validation error attached.
+- **Photos are shrunk in the browser** (longest side 1600 px, JPEG) to stay within hosting request-size limits and keep uploads fast on mobile data.
 
 ## Implementation During the Hackathon
 
-[Describe what the team built during the Hack Day and the major functionality or components completed during the event.]
+Everything in this branch was built on 8 October 2026 during the Hack Day:
+
+- the ClinicalTrials.gov client, age/sex filtering, search widening and the offline registry snapshot
+- the eligibility rule splitter, tested against real registry records (33 trials, 579 rules in a sanity run)
+- the Gemma 4 client with JSON validation, retries and timeouts, plus the extraction and rule-checking prompts
+- the match logic (verdicts, status, doctor questions, ranking), with unit tests (`npm test`)
+- the three API routes and the full UI: upload, profile review, live matching, results with rule checklists, and the printable summary
+- two synthetic sample patients (`samples/`, rendered to `public/samples/`) for demos and testing
+
+**Checks on 8 Oct 2026 (local):**
+- **In the browser, end to end:** for the synthetic metastatic breast cancer patient, the profile was read in about 35 s, and 21 recruiting trials in India were checked in about 2 minutes. The trial the sample was written to fit, NCT06312176 (HR+/HER2− metastatic breast cancer after CDK4/6 inhibitor progression), came out as a likely match.
+- **Through the API:** an early-stage trial (NCT05827081) and a triple-negative trial (NCT06103864) came out as not eligible, citing the stage and receptor rules.
 
 ### Team Contributions
 
@@ -98,48 +149,69 @@ The submitted application should be functional and accessible through the provid
 
 ### AI / Models
 
-- **[Model]:** [How it is used]
+- **Gemma 4 26B A4B (`gemma-4-26b-a4b-it`)**, an open-weight model by Google DeepMind released under the [Apache 2.0 license](https://ai.google.dev/gemma/apache_2), called through the Gemini API. It does two things:
+  - reads report images into the patient profile (multimodal extraction)
+  - judges each eligibility rule of each trial against that profile, with a reason, evidence and a doctor question
+
+  It does **not** decide the final status; `lib/match.ts` does. `GEMMA_MODEL` can be set to `gemma-4-31b-it` for the larger dense model (slower in our tests).
 
 ### Open Source Components
 
-- **[Library / Framework]:** [Purpose]
-- **[Dataset]:** [Purpose]
-- **[API / Service]:** [Purpose]
-
-[Include relevant licenses, attribution, and acknowledgements for external components.]
+- **Next.js** (MIT), **React** (MIT), **Tailwind CSS** (MIT), **zod** (MIT), **TypeScript** (Apache 2.0): the application framework, UI and validation.
+- **Google Gen AI SDK, `@google/genai`** (Apache 2.0): the client for the Gemini API.
+- **Atkinson Hyperlegible Next** and **Source Serif 4** (SIL Open Font License, via Google Fonts): the UI fonts.
+- **ClinicalTrials.gov API v2** (U.S. National Library of Medicine): live trial records. Trial records shown in the app and in `data/ctgov-snapshot.json` come from ClinicalTrials.gov. TrialBridge is not affiliated with or endorsed by the National Library of Medicine.
+- **Sample reports:** the two patients in `samples/` are synthetic and the hospital is fictional. No real patient data is used or stored.
 
 ## Setup and Usage
 
 ### Prerequisites
 
-- [Requirement]
-- [Requirement]
+- Node.js 22.18 or newer (developed with Node.js 24.19)
+- A free Gemini API key from [Google AI Studio](https://aistudio.google.com/apikey)
 
 ### Installation
 
 ```bash
-git clone [repository-url]
-cd [project-directory]
-[installation-command]
+git clone https://github.com/vipinsudhakar/hacktoberfest-hack-day-coimbatore-x-init-club-and-idea-club.git
+cd hacktoberfest-hack-day-coimbatore-x-init-club-and-idea-club
+npm install
 ```
 
 ### Environment Variables
 
+Copy `.env.example` to `.env.local` and fill in the key:
+
 ```env
-[VARIABLE_NAME]=[value]
+GEMINI_API_KEY=your-key-from-ai-studio
+GEMMA_MODEL=gemma-4-26b-a4b-it
 ```
-
-
 
 ### Running the Project
 
 ```bash
-[run-command]
+npm run dev        # http://localhost:3000
+npm test           # unit tests for the rule splitter, registry helpers and match logic
+npm run snapshot   # optional: refresh the offline copy of the registry
 ```
 
 ### Usage
 
-[Explain the basic steps required to use the project.]
+1. Open the app and add photos of the patient's reports, or click a **sample patient**.
+2. Wait for Gemma 4 to read them (about half a minute), then check and correct the profile. The cancer type is what the registry is searched for.
+3. Click **Find matching trials** and watch the trials get checked.
+4. Open a trial to see every rule with ✓ / ✗ / ?, its sites in India and its contacts.
+5. Click **Print summary for your oncologist**.
+
+TrialBridge is a screening aid, not medical advice. Only the trial team can confirm eligibility.
+
+## Challenges and Learnings
+
+- **Latency was the first wall.** The first parallel runs took about 3 minutes per trial. The same check with thinking set to minimal took 26 s and used no thinking tokens. We switched, wrote the medical connections into the prompt instead (stage IV means metastatic, HER2 IHC 1+ is HER2-negative, which drugs are CDK4/6 inhibitors), and a 4-trial batch dropped to 42 s.
+- **Real eligibility text is messy.** Registry criteria mix headings with and without colons, `*` and numbered bullets, nested sub-rules, escaped characters and boilerplate notes. We built the splitter against real records and kept fixing it until a sanity run over 33 trials produced clean rules.
+- **Exclusion criteria invite double negatives.** Asking "does the patient pass this exclusion?" was ambiguous, so we ask "does this exclusion apply?" and flip the answer in code.
+- **Venue networks are unpredictable.** Some domains were blocked on the venue Wi-Fi, so the trials route falls back to a saved snapshot of the registry.
+- **Hosting limits shape the design.** Request size and duration limits led to shrinking photos in the browser and checking one trial per request.
 
 ## Devpost Submission
 
@@ -151,11 +223,14 @@ cd [project-directory]
 
 ### Credits
 
-[Credit libraries, frameworks, datasets, models, APIs, contributors, and other external resources used.]
+- [Gemma 4](https://ai.google.dev/gemma) by Google DeepMind ([Apache 2.0](https://ai.google.dev/gemma/apache_2)), via the [Gemini API](https://ai.google.dev/gemini-api)
+- Trial data from [ClinicalTrials.gov](https://clinicaltrials.gov) (U.S. National Library of Medicine) through its [public API](https://clinicaltrials.gov/data-api/api)
+- Next.js, React, Tailwind CSS, zod, TypeScript and the Google Gen AI SDK, used under their open-source licenses (see above)
+- Fonts: Atkinson Hyperlegible Next (Braille Institute) and Source Serif 4 (Adobe), SIL Open Font License
 
 ### License
 
-[License name and/or link.]
+[MIT](LICENSE)
 
 ## Submission Checklist
 

@@ -2,7 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { splitCriteria } from "./criteria.ts";
 
-// Eligibility texts below are copied from ClinicalTrials.gov records (public domain).
+// Eligibility texts below are copied from ClinicalTrials.gov records (U.S. National Library of Medicine).
 
 const NCT06312176 = `Inclusion Criteria:
 
