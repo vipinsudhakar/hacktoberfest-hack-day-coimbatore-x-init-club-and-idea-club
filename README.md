@@ -9,10 +9,10 @@
 
 | Member | Contribution   |
 | ------ | -------------- |
-| Vipin Sudhakar | [Contribution] |
-| Shashank Kannan | [Contribution] |
-| Anirudh S Nair | [Contribution] |
-| Akshara Sree R | [Contribution] |
+| Vipin Sudhakar | Application Architecture and AI Integration: Next.js application structure, Gemini/Gemma integration, medical-document extraction, prompt development, and API error handling.  |
+| Shashank Kannan | Trial Retrieval and Matching Logic: ClinicalTrials.gov integration, eligibility-rule parsing, patient–trial matching, medication-related checks, and regression testing. |
+| Anirudh S Nair | Frontend and Accessibility: Report-upload flow, editable patient profile, trial-results interface, responsive layouts, themes, and multilingual explanations. |
+| Akshara Sree R | Patient Workflow, Testing, and Documentation: Trial-contact messages, printable oncologist summary, synthetic sample reports, user-flow testing, README documentation, and demo preparation. |
 
 
 ## Problem Statement
@@ -141,10 +141,10 @@ Everything in this branch was built on 8 October 2026 during the Hack Day:
 
 ### Team Contributions
 
-- **[Member Name]:** [Contribution]
-- **[Member Name]:** [Contribution]
-- **[Member Name]:** [Contribution]
-- **[Member Name]:** [Contribution]
+- **Vipin Sudhakar:** Application Architecture and AI Integration: Next.js application structure, Gemini/Gemma integration, medical-document extraction, prompt development, and API error handling.
+- **Shashank Kannan:** Trial Retrieval and Matching Logic: ClinicalTrials.gov integration, eligibility-rule parsing, patient–trial matching, medication-related checks, and regression testing.
+- **Anirudh S Nair:** Frontend and Accessibility: Report-upload flow, editable patient profile, trial-results interface, responsive layouts, themes, and multilingual explanations.
+- **Akshara Sree R:** Patient Workflow, Testing, and Documentation: Trial-contact messages, printable oncologist summary, synthetic sample reports, user-flow testing, README documentation, and demo preparation.
 
 ## Working Application
 
