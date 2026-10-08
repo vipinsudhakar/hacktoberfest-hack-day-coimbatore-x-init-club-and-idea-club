@@ -213,6 +213,22 @@ npm test           # unit tests for the rule splitter, registry helpers and matc
 npm run snapshot   # optional: refresh the offline copy of the registry
 ```
 
+### Project Structure
+
+```text
+app/                 pages, error pages, icon and social image, and the API routes
+  api/extract        reads report photos into a patient profile (Gemma 4)
+  api/trials         finds recruiting trials in India and sets aside clear mismatches
+  api/evaluate       checks one trial rule by rule (Gemma 4)
+  api/translate      Tamil / Hindi explanations (Gemma 4)
+components/          the interface: upload, profile review, results, medicines panel, printout
+lib/                 server logic (Gemma client, registry client, rule splitter, match logic, prompts)
+  client/            browser helpers (API calls, image resizing, theme, translations, trial message)
+data/                saved copy of the registry, used if ClinicalTrials.gov can't be reached
+samples/             sources of the synthetic sample reports (rendered images are in public/samples/)
+scripts/             `npm run snapshot` refreshes the saved registry copy
+```
+
 ### Usage
 
 1. Open the app and add photos of the patient's reports, or click a **sample patient**.
@@ -282,4 +298,4 @@ TrialBridge is a screening aid, not medical advice. Only the trial team can conf
 - [ ] Devpost link added
 - [x] Credits added
 - [x] License added
-- [ ] Repository is organized and complete
+- [x] Repository is organized and complete
