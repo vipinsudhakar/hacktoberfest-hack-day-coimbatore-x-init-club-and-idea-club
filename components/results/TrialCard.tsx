@@ -1,8 +1,9 @@
 import { useId } from "react";
 import { formatPhase, sameCity, type Evaluation } from "@/lib/client/results";
-import type { Trial, TrialContact, TrialSite } from "@/lib/types";
+import type { PatientProfile, Trial, TrialContact, TrialSite } from "@/lib/types";
 import { AlertTriangle, ExternalLink, HelpCircle, Mail, Phone, Refresh, XCircle } from "../Icons";
 import { buttonSecondary, panel } from "../ui";
+import { ContactMessage } from "./ContactMessage";
 import { CriteriaChecklist, MedicineTag } from "./CriteriaChecklist";
 import { StatusBadge } from "./StatusBadge";
 
@@ -88,18 +89,19 @@ function Contacts({ contacts }: { contacts: TrialContact[] }) {
 export function TrialCard({
   trial,
   evaluation,
-  patientCity,
+  profile,
   celebrate = false,
   onRetry,
 }: {
   trial: Trial;
   evaluation: Evaluation;
-  patientCity: string | null;
+  profile: PatientProfile;
   /** The run's first likely match: a soft halo and a self-drawing tick, once. */
   celebrate?: boolean;
   onRetry: () => void;
 }) {
   const titleId = useId();
+  const patientCity = profile.city;
   const match = evaluation.state === "done" ? evaluation.match : null;
   const phases = trial.phases.map(formatPhase).filter((p): p is string => Boolean(p));
   const hasPeople = trial.indiaSites.length > 0 || trial.contacts.some((c) => c.phone || c.email);
@@ -207,6 +209,8 @@ export function TrialCard({
           <Contacts contacts={trial.contacts} />
         </div>
       )}
+
+      {match && match.status !== "not_eligible" && <ContactMessage trial={trial} match={match} profile={profile} />}
 
       {match && <CriteriaChecklist results={match.results} />}
     </article>

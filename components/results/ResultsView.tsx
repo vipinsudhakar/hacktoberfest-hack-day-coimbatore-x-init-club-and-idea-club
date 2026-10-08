@@ -434,7 +434,7 @@ export function ResultsView({
                           <TrialCard
                             trial={row.trial}
                             evaluation={row.evaluation}
-                            patientCity={profile.city}
+                            profile={profile}
                             celebrate={row.trial.nctId === celebrateId}
                             onRetry={() => onRetryTrial(row.trial)}
                           />
