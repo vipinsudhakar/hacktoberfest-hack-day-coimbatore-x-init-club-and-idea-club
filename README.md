@@ -271,12 +271,12 @@ TrialBridge is a screening aid, not medical advice. Only the trial team can conf
 - [x] Architecture included
 - [x] Technical implementation documented
 - [x] Work completed during the hackathon documented
-- [ ] Team contributions documented
+- [x] Team contributions documented
 - [x] Working application is functional
 - [x] Live application link added where applicable
 - [ ] Demo video added
 - [x] AI and open-source components documented
-- [ ] Setup and usage instructions tested
+- [x] Setup and usage instructions tested
 - [x] Challenges and learnings documented
 - [ ] Devpost submission completed
 - [ ] Devpost link added
