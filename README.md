@@ -171,9 +171,7 @@ The live app runs on Gemma's free tier. If many people use it at once, it may sa
 
 ## Demo Video
 
-**Demo Video:** [Video URL]
-
-[Provide a short demonstration of the working project, covering the main user flow and important functionality.]
+**Demo Video:** https://youtu.be/EAS2rQpnZYA
 
 ## Open Source and AI Usage
 
@@ -274,9 +272,7 @@ TrialBridge is a screening aid, not medical advice. Only the trial team can conf
 
 ## Devpost Submission
 
-**Devpost Project:** [Devpost Project URL]
-
-[Add the link to the team's Devpost submission. Ensure the Devpost project page is complete and contains the required project information, links, media, and team details.]
+**Devpost Project:** https://dev.to/akshara_sree_30/building-trialbridge-an-ai-clinical-trial-matcher-built-in-a-single-hack-day-18a3
 
 ## Credits and License
 
@@ -305,12 +301,12 @@ TrialBridge is a screening aid, not medical advice. Only the trial team can conf
 - [x] Team contributions documented
 - [x] Working application is functional
 - [x] Live application link added where applicable
-- [ ] Demo video added
+- [x] Demo video added
 - [x] AI and open-source components documented
 - [x] Setup and usage instructions tested
 - [x] Challenges and learnings documented
-- [ ] Devpost submission completed
-- [ ] Devpost link added
+- [x] Devpost submission completed
+- [x] Devpost link added
 - [x] Credits added
 - [x] License added
 - [x] Repository is organized and complete
