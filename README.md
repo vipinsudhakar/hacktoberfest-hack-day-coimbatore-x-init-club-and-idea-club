@@ -1,10 +1,10 @@
-# [Project Name]
+TrialBridge: Cancer Clinical-Trial Matcher
 
-> [One-line description of the project and what it does.]
+TrialBridge is an AI-powered platform that uses Google's Gemma 4 to analyze cancer patients' medical reports, match them with potentially suitable clinical trials in India, and explain eligibility criteria and hospital locations for oncologist review.
 
-## Team
+Team
 
-**Team Name:** [Team Name]
+Team Name: Latent
 
 
 | Member | Contribution   |
@@ -19,26 +19,26 @@
 
 ### The Problem
 
-[Describe the problem being addressed, who is affected by it, and the context in which it occurs.]
+Clinical trials give cancer patients new treatment for free, but in India almost nobody gets matched to one. Each trial has pages of medical eligibility rules, and there are dozens of trials per cancer type. No patient or busy oncologist reads them all.
 
 ### Why We Chose This Problem
 
-[Explain why the team selected this problem and why solving it is important.]
+We chose this problem because finding suitable clinical trials can be overwhelming for cancer patients and their families due to complex medical eligibility criteria and scattered information. Through TrialBridge, we aim to bridge this gap using AI to make clinical trial discovery simpler, more accessible, and transparent, helping patients explore potential treatment opportunities with their oncologists.
 
 ## Solution
 
-[Describe the proposed solution and how it addresses the problem.]
+Our proposed solution, **TrialBridge**, leverages Google's Gemma 4 AI to analyze cancer patients' medical reports and match them with potentially suitable clinical trials in India using real-time clinical trial data. It provides transparent, rule-by-rule eligibility assessments, identifies participating hospitals, and helps patients and oncologists explore relevant treatment opportunities with greater ease and confidence.
 
 ### Key Features
 
-- [Feature 1]
-- [Feature 2]
-- [Feature 3]
-- [Feature 4]
+- AI-Powered Medical Report Analysis: Uses Google's Gemma 4 to extract cancer diagnosis, stage, biomarkers, and treatment history from uploaded medical reports.
+- Real-Time Clinical Trial Discovery: Searches ClinicalTrials.gov to identify actively recruiting cancer clinical trials with participating hospitals in India.
+- Explainable Eligibility Matching: Evaluates trial eligibility criteria against the patient's medical profile, highlighting potential matches, mismatches, and missing information.
+- Hospital Details & Doctor Consultation Support: Provides participating hospital locations, trial contact information, and personalized questions to discuss with an oncologist.
 
 ## Innovation and Differentiation
 
-[Explain what is innovative about the approach and how it differs from existing or conventional solutions.]
+TrialBridge differentiates itself by combining Google's Gemma 4 AI with real-time clinical trial data to deliver personalized, evidence-based trial matching rather than generic search results. Its key innovation lies in transparent, rule-by-rule eligibility analysis that explains potential matches, identifies missing information, and connects patients with relevant clinical trials and hospitals in India.
 
 ## Technical Implementation
 
