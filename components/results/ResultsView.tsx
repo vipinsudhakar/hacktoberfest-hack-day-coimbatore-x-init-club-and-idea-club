@@ -95,12 +95,12 @@ function Filters({ rows, filter, onChange }: { rows: TrialRow[]; filter: ResultF
             aria-pressed={active}
             onClick={() => onChange(key)}
             className={`inline-flex min-h-11 items-center gap-2 rounded-md border px-3.5 text-[0.9375rem] font-semibold transition-colors duration-150 ${
-              active ? "border-ink bg-ink text-white" : "border-line-2 bg-white text-ink hover:border-ink-2"
+              active ? "border-ink bg-ink text-paper" : "border-line-2 bg-surface text-ink hover:border-ink-2"
             }`}
           >
-            {Icon && <Icon size={17} className={active ? "text-white" : icon} />}
+            {Icon && <Icon size={17} className={active ? "text-paper" : icon} />}
             {label}
-            <span className={`font-mono text-sm tabular-nums ${active ? "text-white/80" : "text-ink-3"}`}>{n}</span>
+            <span className={`font-mono text-sm tabular-nums ${active ? "text-paper/80" : "text-ink-3"}`}>{n}</span>
           </button>
         );
       })}

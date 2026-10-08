@@ -139,7 +139,7 @@ export function UploadStep({
                     aria-label={`Remove photo ${i + 1} (${item.name})`}
                     className="absolute right-1 top-1 flex size-11 items-center justify-center rounded-md text-ink hover:text-fail"
                   >
-                    <span className="flex size-7 items-center justify-center rounded-full bg-white shadow-[0_1px_3px_rgb(18_21_25/0.25)]">
+                    <span className="flex size-7 items-center justify-center rounded-full bg-surface shadow-[0_1px_3px_rgb(18_21_25/0.25)]">
                       <Close size={15} />
                     </span>
                   </button>
@@ -178,7 +178,7 @@ export function UploadStep({
                   onClick={() => onSample(sample)}
                   disabled={loadingSample !== null}
                   aria-busy={loading || undefined}
-                  className="group flex min-h-11 w-full items-center gap-3 rounded-lg border border-line bg-white px-4 py-3.5 text-left transition-colors duration-150 hover:border-ink-2 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="group flex min-h-11 w-full items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3.5 text-left transition-colors duration-150 hover:border-ink-2 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <span className="min-w-0 flex-1">
                     <span className="block font-semibold text-ink">{sample.title}</span>

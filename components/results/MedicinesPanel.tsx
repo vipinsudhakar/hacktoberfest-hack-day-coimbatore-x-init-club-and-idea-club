@@ -89,7 +89,7 @@ export function MedicinesPanel({
   const soFar = allDone ? "" : " so far";
 
   return (
-    <section aria-labelledby="medicines-heading" className="rounded-lg border border-line bg-white px-5 py-6 sm:px-7">
+    <section aria-labelledby="medicines-heading" className="rounded-lg border border-line bg-surface px-5 py-6 sm:px-7">
       <div className="flex items-start gap-3">
         <Pill size={22} className="mt-1 shrink-0 text-accent" />
         <div className="min-w-0">

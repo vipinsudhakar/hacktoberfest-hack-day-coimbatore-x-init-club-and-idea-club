@@ -147,7 +147,7 @@ export function ProfileEditor({
             ).map(([label, value]) => (
               <label
                 key={label}
-                className="flex min-h-11 cursor-pointer items-center gap-2.5 rounded-md border border-line-2 bg-white px-4 hover:border-ink-2 has-[:checked]:border-accent has-[:checked]:bg-accent-soft has-[:checked]:font-semibold has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent"
+                className="flex min-h-11 cursor-pointer items-center gap-2.5 rounded-md border border-line-2 bg-surface px-4 hover:border-ink-2 has-[:checked]:border-accent has-[:checked]:bg-accent-soft has-[:checked]:font-semibold has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-accent"
               >
                 <input
                   type="radio"
