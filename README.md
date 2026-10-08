@@ -171,8 +171,8 @@ The live app runs on Gemma's free tier. If many people use it at once, it may sa
 
 ## Demo Video
 
-**Demo Video:** https://youtu.be/EAS2rQpnZYA
-**Drive link:** https://drive.google.com/file/d/1LL6_98RJnoDofCdYfBbob34vem61wxon/view?usp=drive_link
+**Demo Video :** https://youtu.be/EAS2rQpnZYA
+**Drive link :** https://drive.google.com/file/d/1LL6_98RJnoDofCdYfBbob34vem61wxon/view?usp=drive_link
 
 ## Open Source and AI Usage
 
