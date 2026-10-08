@@ -93,6 +93,28 @@ export function TrialBridgeApp() {
     document.title = title ? `${title} · TrialBridge` : "TrialBridge: cancer trials in India, explained";
   }, [step]);
 
+  /** Clears everything about the current patient, including their photos, and returns to the start. */
+  function startOver() {
+    readAbort.current?.abort();
+    runAbort.current?.abort();
+    setUploads((prev) => {
+      prev.forEach((u) => URL.revokeObjectURL(u.previewUrl));
+      return [];
+    });
+    setNotice(null);
+    setProblem(null);
+    setSkippedPhotos([]);
+    setProfile(emptyProfile());
+    setFromReports(false);
+    setSearch({ phase: "searching" });
+    setTrials([]);
+    setEvaluations({});
+    setFirstLikely(null);
+    celebrated.current = false;
+    matchedProfile.current = null;
+    go("start");
+  }
+
   /** Changes screen inside a transition, tagged forward or back so the content slides the right way. */
   const currentStep = useRef<Step>("start");
   function go(next: Step) {
@@ -388,6 +410,7 @@ export function TrialBridgeApp() {
             onCheckAnyway={checkAnyway}
             celebrateId={firstLikely}
             onEditProfile={editProfile}
+            onStartOver={startOver}
           />
         )}
           </div>

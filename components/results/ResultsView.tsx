@@ -418,6 +418,7 @@ export function ResultsView({
   const setAside = ready ? remainingSetAside(ready, rows) : [];
   // "All checked" means nothing pending and nothing failed; none-fit looks only at trials that were checked.
   const allChecked = rows.length > 0 && counts.pending === 0 && counts.failed === 0;
+  const nothingPending = rows.length > 0 && counts.pending === 0;
   const noneFit = counts.pending === 0 && anyDone && doneRows.every((r) => rowFilterKey(r) === "not_eligible");
   const printLabel = allChecked
     ? "Print a summary for the oncologist"
@@ -436,7 +437,7 @@ export function ResultsView({
   const [language, setLanguage] = useState<ResultLanguage>("en");
   const [translated, setTranslated] = useState<{ key: string; map: Map<string, string> } | null>(null);
   const [translateError, setTranslateError] = useState<string | null>(null);
-  const texts = useMemo(() => (allChecked ? explanationTexts(rows) : []), [allChecked, rows]);
+  const texts = useMemo(() => (nothingPending ? explanationTexts(rows) : []), [nothingPending, rows]);
   const translateKey = language === "en" ? "" : `${language}:${texts.join("")}`;
   useEffect(() => {
     if (language === "en" || !texts.length || translated?.key === translateKey) return;
@@ -456,7 +457,7 @@ export function ResultsView({
   );
   const languageStatus =
     language === "en"
-      ? allChecked
+      ? nothingPending
         ? null
         : "Available once every trial is checked."
       : translateError
@@ -498,7 +499,7 @@ export function ResultsView({
                 setTranslateError(null);
                 setLanguage(next);
               }}
-              disabled={!allChecked}
+              disabled={!nothingPending}
               status={languageStatus}
             />
           </div>
