@@ -13,7 +13,7 @@ const IMAGE_TYPES = /^image\/(png|jpe?g|webp)$/;
 export async function POST(request: Request) {
   let body: Partial<ExtractRequest>;
   try {
-    body = await request.json();
+    body = (await request.json()) ?? {};
   } catch {
     return errorResponse("Send the report images as JSON.", 400);
   }

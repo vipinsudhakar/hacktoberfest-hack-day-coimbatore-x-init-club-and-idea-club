@@ -24,7 +24,7 @@ function snapshotKey(term: string): string | null {
 export async function POST(request: Request) {
   let body: Partial<TrialsRequest>;
   try {
-    body = await request.json();
+    body = (await request.json()) ?? {};
   } catch {
     return errorResponse("Send the patient profile as JSON.", 400);
   }

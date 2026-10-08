@@ -126,8 +126,14 @@ const assessmentReply = z.object({
 /** A reply that skips any of the expected rule ids is rejected, so generateJson retries it. */
 export function assessmentSchema(ruleIds: number[]) {
   return assessmentReply.superRefine((reply, ctx) => {
-    const answered = new Set(reply.results.map((r) => r.id));
+    const ids = reply.results.map((r) => r.id);
+    const answered = new Set(ids);
     const missing = ruleIds.filter((id) => !answered.has(id));
+    const expected = new Set(ruleIds);
+    const extra = [...new Set(ids.filter((id, i) => !expected.has(id) || ids.indexOf(id) !== i))];
+    if (extra.length) {
+      ctx.addIssue({ code: "custom", message: `results has unexpected or duplicate rule ids ${extra.join(", ")}` });
+    }
     if (missing.length) {
       ctx.addIssue({ code: "custom", message: `results is missing rule ids ${missing.join(", ")}` });
     }
@@ -158,7 +164,7 @@ ${rules}
 For every rule, set "holds":
 - Inclusion rule: does the patient MEET this requirement? "yes", "no", or "unknown" if the profile doesn't say. A requirement that only applies to some patients (e.g. "HIV-positive participants must have controlled HIV") is met by a patient it doesn't apply to.
 - Exclusion rule: does this exclusion APPLY to the patient? "yes", "no", or "unknown".
-- For exclusions about other illnesses or history (autoimmune disease, lung disease, infections, heart disease, other cancers), answer "no" when the profile's comorbidities and history don't mention it, and say "not mentioned in the reports" in the reason.
+- If the profile doesn't mention a condition or history the rule asks about, answer "unknown" and ask a question. Answer "no" only when the reports state it (e.g. "No known lung disease"). Never treat "not mentioned" as "not present".
 - Use medical knowledge to connect terms: stage IV means metastatic; HER2 IHC 0 or 1+ is HER2-negative; palbociclib, ribociclib and abemaciclib are CDK4/6 inhibitors; letrozole, anastrozole, exemestane, fulvestrant and tamoxifen are endocrine therapies; osimertinib, gefitinib and erlotinib are EGFR TKIs. Work out time intervals from the dates given.
 - Rules about other medicines (e.g. "strong CYP3A4 inhibitors or inducers", "systemic corticosteroids", "anticoagulants", "other investigational drugs") must be checked against the profile's medications by drug class: clarithromycin, itraconazole and ketoconazole are strong CYP3A4 inhibitors; rifampicin, carbamazepine and phenytoin are strong CYP3A4 inducers. Compare a medicine's end date (until) with today: a course that has already ended does not count as current use, but mention any washout period the rule asks for in the reason.
 - Never invent facts that are not in the profile.

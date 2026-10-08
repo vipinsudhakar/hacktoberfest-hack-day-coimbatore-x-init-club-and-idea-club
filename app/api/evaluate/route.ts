@@ -12,7 +12,7 @@ const RULES_PER_CALL = 20;
 export async function POST(request: Request) {
   let body: Partial<EvaluateRequest>;
   try {
-    body = await request.json();
+    body = (await request.json()) ?? {};
   } catch {
     return errorResponse("Send the profile and trial as JSON.", 400);
   }
@@ -21,7 +21,8 @@ export async function POST(request: Request) {
     return errorResponse("Both a patient profile and a trial are required.", 400);
   }
 
-  const criteria = splitCriteria(trial.eligibilityText);
+  if (trial.eligibilityText.length > 40_000) return errorResponse("This trial's rules are too long to check here.", 413);
+  const criteria = splitCriteria(trial.eligibilityText).slice(0, 120);
   if (!criteria.length) {
     const match = decideMatch(trial.nctId, trial.title, [], []);
     match.status = "possible";

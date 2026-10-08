@@ -49,11 +49,22 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Recent validated answers, kept in memory while the server instance stays warm.
 const MAX_CACHED_ANSWERS = 300;
-const answers = new Map<string, unknown>();
+const CACHE_TTL_MS = 60 * 60 * 1000; // answers contain medical details, so they are forgotten after an hour
+const answers = new Map<string, { value: unknown; at: number }>();
 
 function remember(key: string, value: unknown) {
   if (answers.size >= MAX_CACHED_ANSWERS) answers.delete(answers.keys().next().value as string);
-  answers.set(key, value);
+  answers.set(key, { value, at: Date.now() });
+}
+
+function recall(key: string): { value: unknown } | null {
+  const hit = answers.get(key);
+  if (!hit) return null;
+  if (Date.now() - hit.at > CACHE_TTL_MS) {
+    answers.delete(key);
+    return null;
+  }
+  return hit;
 }
 
 /** How long to wait before retrying: the delay a 429 asks for, or a short backoff. */
@@ -116,7 +127,8 @@ export async function generateJson<T>(
     .update(prompt)
     .update(images.map((img) => img.data).join("|"))
     .digest("hex");
-  if (answers.has(cacheKey)) return answers.get(cacheKey) as T;
+  const cached = recall(cacheKey);
+  if (cached) return cached.value as T;
 
   const deadline = Date.now() + budgetMs;
   const imageParts = images.map((img) => createPartFromBase64(img.data, img.mimeType));

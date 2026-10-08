@@ -232,6 +232,15 @@ TrialBridge is a screening aid, not medical advice. Only the trial team can conf
 - **Dates matter for medicines.** Without today's date, the model treated a course that had already ended as current. Adding the date fixed it, and it now reasons about washout windows.
 - **Hosting limits shape the design.** Request size and duration limits led to shrinking photos in the browser and checking one trial per request.
 
+### Known Limitations and Next Steps
+
+- **It is a screening aid.** Gemma can misread a report or a rule. Missing facts are treated as unknown and turned into questions, never assumed absent, and every result says to confirm with the oncologist.
+- **Eligibility text is free-form.** The splitter handles headings, nested and inline lists and "any of the following" alternatives (with regression tests from real trials), but complex cohort-specific rules can still be simplified. Explicit AND/OR trees and per-cohort rules are next.
+- **Registry search** reads up to 300 recruiting trials per search and skips trials that publish no eligibility text. The offline snapshot's date isn't shown in the app yet.
+- **The API accepts trial records from the client.** Next steps are server-verified trial records, stricter request schemas and shared rate limits.
+- **Privacy:** reports are sent to Google's Gemini API, and validated answers are cached in server memory for up to an hour. For real deployment, Gemma's open weights allow running the model inside a hospital network instead.
+- **Review screen:** showing each report image beside the facts read from it, with document dates, is planned.
+
 ## Devpost Submission
 
 **Devpost Project:** [Devpost Project URL]

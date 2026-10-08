@@ -428,7 +428,7 @@ export function ResultsView({
           </button>
           {ready && rows.length > 0 && (
             <button type="button" onClick={() => window.print()} className={buttonPrimary}>
-              <Printer size={20} /> Print a summary for the oncologist
+              <Printer size={20} /> {allChecked ? "Print a summary for the oncologist" : "Print the results so far (still checking)"}
             </button>
           )}
         </div>

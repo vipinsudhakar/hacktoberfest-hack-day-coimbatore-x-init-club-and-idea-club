@@ -129,3 +129,31 @@ test("short labels with nested rules become groups; placeholders and notes are s
   );
   assert.deepEqual(rules.map((r) => r.id), [1, 2]);
 });
+
+// NCT05421650 (ClinicalTrials.gov): numbered headings and inline "(1) … (2) …" lists.
+const NCT05421650 = `1\) Inclusion Criteria
+
+(1) Women aged ≥ 20 years and ≤ 70 years (2) Patients newly diagnosed with squamous cell carcinoma (SCC), adenocarcinoma, or adenosquamous carcinoma (3) Patients with CCRT planned as a treatment for cervical cancer
+
+2\) Exclusion Criteria
+
+(1) Patients who are pregnant or plans to conceive during the clinical study period (2) Patients with a history of pelvic RT`;
+
+test("numbered headings switch sections and inline numbered lists split into rules", () => {
+  const rules = splitCriteria(NCT05421650);
+  assert.deepEqual(rules.map((r) => [r.kind, r.text.slice(0, 30)]), [
+    ["inclusion", "Women aged ≥ 20 years and ≤ 70"],
+    ["inclusion", "Patients newly diagnosed with "],
+    ["inclusion", "Patients with CCRT planned as "],
+    ["exclusion", "Patients who are pregnant or p"],
+    ["exclusion", "Patients with a history of pel"],
+  ]);
+});
+
+test("'any of the following' alternatives become one rule instead of all being required", () => {
+  const text = ["Inclusion Criteria:", "", "* Meets any of the following:", "  * ECOG 0-1", "  * Karnofsky 70 or more", "* Age 18 or older"].join(String.fromCharCode(10));
+  assert.deepEqual(
+    splitCriteria(text).map((r) => r.text),
+    ["Meets any of the following: ECOG 0-1; or Karnofsky 70 or more", "Age 18 or older"],
+  );
+});
