@@ -25,6 +25,8 @@ const data = Atkinson_Hyperlegible_Mono({
   variable: "--font-data",
   subsets: ["latin"],
   display: "swap",
+  // Not on the first screen, so it shouldn't compete with the body and heading fonts while the page loads.
+  preload: false,
 });
 
 const DESCRIPTION =

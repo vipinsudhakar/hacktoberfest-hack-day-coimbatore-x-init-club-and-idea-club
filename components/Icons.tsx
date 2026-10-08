@@ -116,24 +116,6 @@ export function Building(props: IconProps) {
   );
 }
 
-export function Upload(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <path d="M12 15V4M7.5 8.5 12 4l4.5 4.5" />
-      <path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
-    </Svg>
-  );
-}
-
-export function FileText(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
-      <path d="M14 3v5h5M9 13h6M9 17h6" />
-    </Svg>
-  );
-}
-
 export function Close(props: IconProps) {
   return (
     <Svg {...props}>
@@ -171,15 +153,6 @@ export function ExternalLink(props: IconProps) {
     <Svg {...props}>
       <path d="M14 4h6v6M20 4l-9 9" />
       <path d="M18 14v4a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4" />
-    </Svg>
-  );
-}
-
-export function MapPin(props: IconProps) {
-  return (
-    <Svg {...props}>
-      <path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z" />
-      <circle cx="12" cy="9.5" r="2.5" />
     </Svg>
   );
 }

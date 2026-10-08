@@ -37,6 +37,13 @@ function Section({
   );
 }
 
+/** The form uses noValidate, so the browser won't stop an age like 400: keep it within 0–120 here. */
+function parseAge(value: string): number | null {
+  if (value === "") return null;
+  const age = Math.round(Number(value));
+  return Number.isFinite(age) ? Math.min(120, Math.max(0, age)) : null;
+}
+
 export function ProfileEditor({
   profile,
   fromReports,
@@ -183,7 +190,7 @@ export function ProfileEditor({
               max={120}
               className={`${fieldInput} mt-1.5`}
               value={profile.age ?? ""}
-              onChange={(e) => set("age", e.target.value === "" ? null : Math.round(Number(e.target.value)))}
+              onChange={(e) => set("age", parseAge(e.target.value))}
             />
           </div>
           <div>
@@ -222,7 +229,7 @@ export function ProfileEditor({
 
       <Section
         title="Current medicines"
-        description="Some trials don't allow certain other medicines, such as some antibiotics or steroids. We check every trial's rules against this list."
+        description="Some trials don't allow certain other medicines, such as some antibiotics or steroids. We check the matching trials' rules against this list."
       >
         <MedicationsEditor value={profile.medications} onChange={(v) => set("medications", v)} />
       </Section>

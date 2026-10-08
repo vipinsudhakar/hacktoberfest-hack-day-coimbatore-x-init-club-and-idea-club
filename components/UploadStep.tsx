@@ -34,7 +34,7 @@ export type Sample = (typeof SAMPLES)[number];
 const HOW_IT_WORKS = [
   ["Add the reports", "Photos of the clinic summary, scans, blood tests and prescriptions. Gemma 4 reads them."],
   ["Check what it read", "Every detail it found is shown with the words it came from, so you can fix anything wrong."],
-  ["See the trials, rule by rule", "Each trial recruiting in India is checked against its own rules, with questions for the oncologist."],
+  ["See the trials, rule by rule", "Each of the matching trials is checked against its own rules, with questions for the oncologist."],
 ] as const;
 
 export function UploadStep({
@@ -68,7 +68,7 @@ export function UploadStep({
         <p className="mt-5 text-lg text-ink-2">
           Clinical trials give new cancer treatment at no cost, but each one has pages of medical rules. Add photos of
           the patient&apos;s reports and prescriptions. TrialBridge reads them and checks the patient against every rule
-          of every trial recruiting in India.
+          of the matching trials.
         </p>
       </header>
 

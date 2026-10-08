@@ -5,13 +5,11 @@ export function ErrorNotice({
   title,
   message,
   onRetry,
-  retryLabel = "Try again",
   children,
 }: {
   title: string;
   message: string;
   onRetry?: () => void;
-  retryLabel?: string;
   children?: React.ReactNode;
 }) {
   return (
@@ -26,7 +24,7 @@ export function ErrorNotice({
               {onRetry && (
                 <button type="button" onClick={onRetry} className={buttonSecondary}>
                   <Refresh size={18} />
-                  {retryLabel}
+                  Try again
                 </button>
               )}
               {children}

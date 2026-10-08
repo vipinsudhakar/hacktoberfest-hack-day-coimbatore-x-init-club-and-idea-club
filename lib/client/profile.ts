@@ -94,7 +94,7 @@ export const ECOG_LABELS: Record<number, string> = {
   5: "5",
 };
 
-/** Short one-line description of the patient, used in the results header and printout. */
+/** Short one-line description of the patient, used in the results header. */
 export function profileHeadline(p: PatientProfile): string {
   const parts: string[] = [];
   if (p.age !== null) parts.push(`${p.age} y`);

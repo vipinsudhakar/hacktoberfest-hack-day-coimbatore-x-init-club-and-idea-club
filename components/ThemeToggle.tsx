@@ -63,7 +63,7 @@ export function ThemeToggle() {
         {OPTIONS.map((o) => (
           <label
             key={o.value}
-            className="relative flex min-h-9 cursor-pointer items-center rounded-[5px] px-2.5 text-xs font-semibold text-ink-3 transition-colors duration-150 hover:text-ink has-[:checked]:bg-surface has-[:checked]:text-ink has-[:checked]:shadow-[0_1px_2px_rgb(0_0_0/0.12)] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-1 has-[:focus-visible]:outline-accent sm:px-3"
+            className="relative flex min-h-9 cursor-pointer items-center rounded-[5px] border border-transparent px-2.5 text-xs font-semibold text-ink-3 transition-colors duration-150 hover:text-ink has-[:checked]:border-ink-3 has-[:checked]:bg-surface has-[:checked]:text-ink has-[:checked]:shadow-[0_1px_2px_rgb(0_0_0/0.12)] has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-1 has-[:focus-visible]:outline-accent sm:px-3"
           >
             <input
               type="radio"

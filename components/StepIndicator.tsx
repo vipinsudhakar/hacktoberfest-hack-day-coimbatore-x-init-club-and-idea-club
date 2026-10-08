@@ -3,7 +3,7 @@ const STEPS = ["Add reports", "Check details", "See trials"] as const;
 /** "Step 2 of 3" with a thin three-part bar: tells a worried reader exactly where they are. */
 export function StepIndicator({ current }: { current: 0 | 1 | 2 }) {
   return (
-    <nav aria-label="Progress" className="print:hidden">
+    <div role="group" aria-label="Progress" className="print:hidden">
       <p className="text-sm text-ink-3">
         <span className="tabular-nums">Step {current + 1} of 3</span>
         <span aria-hidden="true" className="px-2 text-line-2">
@@ -33,6 +33,6 @@ export function StepIndicator({ current }: { current: 0 | 1 | 2 }) {
           );
         })}
       </ol>
-    </nav>
+    </div>
   );
 }

@@ -39,7 +39,7 @@ export function ReadingStep({
   const slow = elapsed >= 75;
 
   return (
-    <section aria-labelledby="reading-heading" aria-busy="true" className="max-w-[42rem]">
+    <section aria-labelledby="reading-heading" className="max-w-[42rem]">
       {previews.length > 0 && (
         <ul aria-hidden="true" className="mb-10 flex flex-wrap gap-3">
           {previews.map((src, i) => (
