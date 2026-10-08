@@ -1,6 +1,6 @@
 import { UPLOAD_LIMITS, type ExtractRequest, type ExtractResponse } from "@/lib/api";
 import { generateJson } from "@/lib/gemma";
-import { describeError, errorResponse } from "@/lib/http";
+import { errorResponse, gemmaErrorMessage } from "@/lib/http";
 import { EXTRACT_PROMPT, profileSchema } from "@/lib/prompts";
 
 export const maxDuration = 60;
@@ -32,6 +32,6 @@ export async function POST(request: Request) {
     return Response.json({ profile } satisfies ExtractResponse);
   } catch (err) {
     console.error("extract failed:", err);
-    return errorResponse(`Gemma couldn't read the reports: ${describeError(err)}`, 502);
+    return errorResponse(gemmaErrorMessage(err, "try again, or use clearer photos of the reports"), 502);
   }
 }

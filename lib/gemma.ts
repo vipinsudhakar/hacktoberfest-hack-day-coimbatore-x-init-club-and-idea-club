@@ -1,4 +1,4 @@
-import { GoogleGenAI, createPartFromBase64, type Part } from "@google/genai";
+import { GoogleGenAI, ThinkingLevel, createPartFromBase64, type Part } from "@google/genai";
 import type { z } from "zod";
 import type { ImageUpload } from "./api";
 
@@ -37,6 +37,11 @@ async function callGemma(parts: Part[]): Promise<string> {
         contents: [{ role: "user", parts }],
         config: {
           temperature: 0.1,
+          // Default thinking made rule checks take minutes; minimal thinking answers in ~20-30 s
+          // and the prompts already spell out the medical reasoning steps.
+          thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
+          // Fail before the route's 60 s limit so the UI can offer a retry.
+          httpOptions: { timeout: 50_000 },
           ...(jsonModeSupported ? { responseMimeType: "application/json" } : {}),
         },
       });

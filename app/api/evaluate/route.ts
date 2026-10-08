@@ -1,7 +1,7 @@
 import type { EvaluateRequest, EvaluateResponse } from "@/lib/api";
 import { splitCriteria } from "@/lib/criteria";
 import { generateJson } from "@/lib/gemma";
-import { describeError, errorResponse } from "@/lib/http";
+import { errorResponse, gemmaErrorMessage } from "@/lib/http";
 import { decideMatch } from "@/lib/match";
 import { assessmentSchema, evaluatePrompt } from "@/lib/prompts";
 
@@ -33,6 +33,6 @@ export async function POST(request: Request) {
     return Response.json({ match } satisfies EvaluateResponse);
   } catch (err) {
     console.error(`evaluate ${trial.nctId} failed:`, err);
-    return errorResponse(`Gemma couldn't check ${trial.nctId}: ${describeError(err)}`, 502);
+    return errorResponse(gemmaErrorMessage(err, "retry this trial"), 502);
   }
 }
