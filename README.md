@@ -9,10 +9,10 @@ Team Name: Latent
 
 | Member | Contribution   |
 | ------ | -------------- |
-| [Name] | [Contribution] |
-| [Name] | [Contribution] |
-| [Name] | [Contribution] |
-| [Name] | [Contribution] |
+| Akshara Sree R | [Contribution] |
+| Anirudh S Nair | [Contribution] |
+| Shashank Kannan | [Contribution] |
+| Vipin Sudhakar | [Contribution] |
 
 
 ## Problem Statement
