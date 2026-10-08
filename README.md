@@ -1,6 +1,6 @@
-# [Project Name]
+# TrialBridge
 
-> [One-line description of the project and what it does.]
+> Upload a cancer patient's medical reports and find the clinical trials recruiting in India that they may qualify for. Gemma 4 reads the reports, then checks the patient against every eligibility rule of every trial.
 
 ## Team
 
@@ -9,21 +9,21 @@
 
 | Member | Contribution   |
 | ------ | -------------- |
-| [Name] | [Contribution] |
-| [Name] | [Contribution] |
-| [Name] | [Contribution] |
-| [Name] | [Contribution] |
+| Vipin Sudhakar | [Contribution] |
+| Shashank Kannan | [Contribution] |
+| Anirudh S Nair | [Contribution] |
+| Akshara Sree R | [Contribution] |
 
 
 ## Problem Statement
 
 ### The Problem
 
-[Describe the problem being addressed, who is affected by it, and the context in which it occurs.]
+Clinical trials give cancer patients access to new treatments at no cost, often at major hospitals in India. But trials struggle to find patients, and patients don't know the trials exist. Each trial lists pages of medical eligibility rules ("HR+/HER2− breast cancer that progressed on a CDK4/6 inhibitor", "ECOG 0–1", "no active brain metastases"). Matching one patient means reading every rule of every recruiting trial for their cancer, which a patient can't do and a busy oncologist rarely has time for.
 
 ### Why We Chose This Problem
 
-[Explain why the team selected this problem and why solving it is important.]
+Cancer treatment pushes many Indian families into debt, while trial slots for free, cutting-edge treatment go unfilled. The information is public (ClinicalTrials.gov lists every registered trial and its rules), but there is far too much of it to read by hand. This is a problem that only makes sense to solve with an AI that can read medical documents and reason about rules at scale.
 
 ## Solution
 
