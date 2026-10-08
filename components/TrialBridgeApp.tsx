@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { ViewTransition, addTransitionType, startTransition, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { UPLOAD_LIMITS } from "@/lib/api";
 import { RequestError, errorMessage, evaluateTrial, extractProfile, findTrials, isAbortError, retryAfter } from "@/lib/client/api";
@@ -26,6 +26,16 @@ const EVALUATE_CONCURRENCY = 3;
 /** Automatic retries after a rate-limit answer, before falling back to a manual Retry button. */
 const MAX_AUTO_RETRIES = 3;
 const STEP_NUMBER = { start: 0, reading: 0, review: 1, results: 2 } as const;
+/** Order of the screens, so a step change knows whether it moves forward or back. */
+const STEP_ORDER = { start: 0, reading: 1, review: 2, results: 3 } as const;
+const STEP_TITLE = {
+  start: null,
+  reading: "Reading the reports",
+  review: "Check the details",
+  results: "Trial results",
+} as const;
+/** Step content slides a little in the direction of travel; nothing else (filters, results arriving) does. */
+const STEP_MOTION = { "step-forward": "step-forward", "step-back": "step-back", default: "none" };
 
 /** Resolves after `ms`, or early when the run is cancelled. */
 function wait(ms: number, signal: AbortSignal): Promise<void> {
@@ -62,13 +72,31 @@ export function TrialBridgeApp() {
   const topRef = useRef<HTMLDivElement>(null);
 
   // Move focus to the top of each new step (not on first load) so keyboard and screen-reader users start there.
+  // A layout effect, so the scroll happens inside the step's view transition rather than after it.
   const shownStep = useRef<Step>("start");
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (shownStep.current === step) return;
     shownStep.current = step;
     topRef.current?.focus({ preventScroll: true });
     window.scrollTo({ top: 0 });
   }, [step]);
+
+  // Name each step in the browser tab, so a family member with many tabs open can find it again.
+  useEffect(() => {
+    const title = STEP_TITLE[step];
+    document.title = title ? `${title} · TrialBridge` : "TrialBridge: cancer trials in India, explained";
+  }, [step]);
+
+  /** Changes screen inside a transition, tagged forward or back so the content slides the right way. */
+  const currentStep = useRef<Step>("start");
+  function go(next: Step) {
+    const forward = STEP_ORDER[next] >= STEP_ORDER[currentStep.current];
+    currentStep.current = next;
+    startTransition(() => {
+      addTransitionType(forward ? "step-forward" : "step-back");
+      setStep(next);
+    });
+  }
 
   // Stamp the printout with the time it was printed (button or Ctrl+P).
   useEffect(() => {
@@ -111,7 +139,7 @@ export function TrialBridgeApp() {
     setProblem(null);
     setNotice(null);
     setReading({ count: blobs.length, phase: "preparing", previews });
-    setStep("reading");
+    go("reading");
     try {
       const images = await prepareImages(blobs);
       if (controller.signal.aborted) return;
@@ -120,7 +148,7 @@ export function TrialBridgeApp() {
       if (controller.signal.aborted) return;
       setProfile(normalizeProfile(res.profile));
       setFromReports(true);
-      setStep("review");
+      go("review");
     } catch (error) {
       if (isAbortError(error) || controller.signal.aborted) return;
       setProblem({
@@ -128,13 +156,13 @@ export function TrialBridgeApp() {
         message: errorMessage(error),
         retry: () => void readReports(blobs, previews),
       });
-      setStep("start");
+      go("start");
     }
   }
 
   function cancelReading() {
     readAbort.current?.abort();
-    setStep("start");
+    go("start");
   }
 
   /** Loads whichever of the sample's pages exist (report, prescription); a missing page is skipped. */
@@ -171,7 +199,7 @@ export function TrialBridgeApp() {
     setProblem(null);
     setProfile(emptyProfile());
     setFromReports(false);
-    setStep("review");
+    go("review");
   }
 
   function setEvaluation(nctId: string, evaluation: Evaluation) {
@@ -221,7 +249,7 @@ export function TrialBridgeApp() {
     setSearch({ phase: "searching" });
     setTrials([]);
     setEvaluations({});
-    setStep("results");
+    go("results");
     try {
       const response = await findTrials(p, controller.signal);
       if (controller.signal.aborted) return;
@@ -247,7 +275,7 @@ export function TrialBridgeApp() {
 
   function editProfile() {
     runAbort.current?.abort();
-    setStep("review");
+    go("review");
   }
 
   const rows: TrialRow[] = trials.map((trial, index) => ({
@@ -262,6 +290,8 @@ export function TrialBridgeApp() {
       <div ref={topRef} tabIndex={-1} className={`space-y-10 outline-none ${printable ? "print:hidden" : ""}`}>
         <StepIndicator current={STEP_NUMBER[step]} />
 
+        <ViewTransition key={step} enter={STEP_MOTION} exit={STEP_MOTION} default="none">
+          <div className="space-y-10">
         {step === "start" && (
           <>
             {problem && (
@@ -294,7 +324,7 @@ export function TrialBridgeApp() {
             fromReports={fromReports}
             onChange={setProfile}
             onSubmit={() => void startMatching(profile)}
-            onBack={() => setStep("start")}
+            onBack={() => go("start")}
           />
         )}
 
@@ -308,6 +338,8 @@ export function TrialBridgeApp() {
             onEditProfile={editProfile}
           />
         )}
+          </div>
+        </ViewTransition>
       </div>
 
       {printable && search.phase === "ready" && (
