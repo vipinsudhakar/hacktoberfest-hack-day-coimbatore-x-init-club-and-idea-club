@@ -22,6 +22,12 @@ export const SAMPLES = [
     detail: "Man, 61 · Tiruppur",
     paths: ["/samples/lung-egfr.png", "/samples/lung-egfr-rx.png"],
   },
+  {
+    id: "head-neck",
+    title: "Mouth cancer that came back",
+    detail: "Man, 58 · Chennai",
+    paths: ["/samples/head-neck.png", "/samples/head-neck-rx.png"],
+  },
 ] as const;
 export type Sample = (typeof SAMPLES)[number];
 
@@ -202,7 +208,7 @@ export function UploadStep({
           No reports at hand?
         </h2>
         <p className="mt-0.5 text-sm text-ink-3">Try a sample patient. The reports are made up, not real people.</p>
-        <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+        <ul className="mt-4 grid gap-3 sm:grid-cols-3">
           {SAMPLES.map((sample) => {
             const loading = loadingSample === sample.id;
             return (

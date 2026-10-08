@@ -79,10 +79,12 @@ Rules for the profile:
 - Copy medical results as written, e.g. "HER2 negative (IHC 1+)", "EGFR exon 19 deletion", "PD-L1 TPS 30%".
 - city: the city where the patient lives (from their address), not the hospital's city.
 - cancerType: a short search term for a trial registry, e.g. "breast cancer", "non-small cell lung cancer", "head and neck cancer", "acute myeloid leukemia".
-- stage: as written, including TNM if given. metastatic: true if the documents describe metastatic or stage IV disease, false if they clearly describe non-metastatic disease, otherwise null.
+- histology: the cell type and the primary site, e.g. "squamous cell carcinoma, left buccal mucosa (oral cavity)".
+- stage: as written, including TNM if given; if the disease has since recurred or spread, add that, e.g. "pT3 N1 M0 (2025); now recurrent with lung metastases". metastatic: true if the documents describe metastatic or stage IV disease, false if they clearly describe non-metastatic disease, otherwise null.
 - treatments: every surgery, chemotherapy, radiation, hormonal, targeted and immunotherapy treatment. Put dates, cycles and the setting (adjuvant, first-line metastatic, ...) in details and the result in outcome (e.g. "progressed after 28 months").
 - ecog: the ECOG performance status if stated. A Karnofsky score is not ECOG: leave ecog null and add the Karnofsky score to otherFindings.
 - medications: every medicine the patient is currently taking (prescriptions, "current medications" lists), including non-cancer medicines and short courses such as antibiotics. Give the active ingredient in genericName (e.g. "clarithromycin" for "Tab. Claribid 500"), the dose and frequency, the end date or duration in until if written, and what it is for if stated. Leave out medicines the documents say were stopped.
+- otherFindings: include drug allergies exactly as stated, e.g. "No known drug allergies".
 - labs: the most recent value of each lab test.
 - evidence: for the most important values (diagnosis, stage, each biomarker, each line of treatment, ECOG), copy the exact snippet from the document.
 - Documents may be photos taken at an angle or slightly blurred; read carefully.
@@ -167,6 +169,8 @@ For every rule, set "holds":
 - If the profile doesn't mention a condition or history the rule asks about, answer "unknown" and ask a question. Answer "no" only when the reports state it (e.g. "No known lung disease"). Never treat "not mentioned" as "not present".
 - Use medical knowledge to connect terms: stage IV means metastatic; HER2 IHC 0 or 1+ is HER2-negative; palbociclib, ribociclib and abemaciclib are CDK4/6 inhibitors; letrozole, anastrozole, exemestane, fulvestrant and tamoxifen are endocrine therapies; osimertinib, gefitinib and erlotinib are EGFR TKIs. Work out time intervals from the dates given.
 - Rules about other medicines (e.g. "strong CYP3A4 inhibitors or inducers", "systemic corticosteroids", "anticoagulants", "other investigational drugs") must be checked against the profile's medications by drug class: clarithromycin, itraconazole and ketoconazole are strong CYP3A4 inhibitors; rifampicin, carbamazepine and phenytoin are strong CYP3A4 inducers. Compare a medicine's end date (until) with today: a course that has already ended does not count as current use, but mention any washout period the rule asks for in the reason.
+- Your "holds" must agree with your reason. Exclusions are often worded as a problem: for "Inadequate organ or bone marrow function", holds is "yes" only if function IS inadequate; normal labs mean "no".
+- "No known drug allergies" in the reports means no known allergy to any medicine, including the study drugs.
 - Never invent facts that are not in the profile.
 
 Other fields:

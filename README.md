@@ -129,7 +129,7 @@ Everything in this branch was built on 8 October 2026 during the Hack Day:
 - the Gemma 4 client with JSON validation, retries and timeouts, plus the extraction and rule-checking prompts
 - the match logic (verdicts, status, doctor questions, ranking), with unit tests (`npm test`)
 - the three API routes and the full UI: upload, profile review, live matching, results with rule checklists, and the printable summary
-- two synthetic sample patients, each with a clinic summary and a prescription (`samples/`, rendered to `public/samples/`), for demos and testing
+- three synthetic sample patients (breast, lung, and head and neck cancer, the last written to fit NCT07276399 in Chennai), each with a clinic summary and a prescription (`samples/`, rendered to `public/samples/`), for demos and testing
 - the medicines feature: current medicines are read from prescriptions, and trial rules about other drugs are checked against them
 - deployment to Vercel, with time budgets per route and rate-limit handling
 - the quick first look that sets aside clear mismatches, and an answer cache
