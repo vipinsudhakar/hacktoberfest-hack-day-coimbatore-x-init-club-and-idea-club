@@ -112,6 +112,23 @@ export async function searchTrials(searchTerm: string): Promise<Trial[]> {
   return trials.filter((t) => t.indiaSites.length > 0 && t.eligibilityText.trim());
 }
 
+const BLOOD_CANCERS = ["leukemia", "lymphoma", "myeloma"];
+const ORGANS = [
+  "head and neck", "breast", "lung", "cervical", "ovarian", "endometrial", "uterine", "prostate", "colorectal",
+  "colon", "rectal", "gastric", "stomach", "esophageal", "liver", "pancreatic", "oral", "thyroid", "bladder",
+  "kidney", "renal", "brain", "skin", "bone",
+];
+
+/** A wider search term for when a specific one ("invasive ductal carcinoma of breast") finds nothing. */
+export function broaderSearchTerm(term: string): string | null {
+  const t = term.toLowerCase();
+  const blood = BLOOD_CANCERS.find((b) => t.includes(b));
+  if (blood) return blood === "myeloma" ? "multiple myeloma" : blood;
+  const organ = ORGANS.find((o) => t.includes(o));
+  const broader = organ ? `${organ} cancer` : null;
+  return broader && broader !== t ? broader : null;
+}
+
 /** Drops trials the patient clearly can't join on age or sex; unknown values never exclude. */
 export function filterByAgeAndSex(trials: Trial[], profile: Pick<PatientProfile, "age" | "sex">): Trial[] {
   return trials.filter((t) => {
