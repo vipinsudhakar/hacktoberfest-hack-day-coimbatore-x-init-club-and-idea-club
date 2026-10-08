@@ -222,3 +222,28 @@ Be inclusive: skip only when the mismatch is clear from what is written. For ski
 
 Reply with only JSON: {"results": [{"nctId": string, "decision": "check" | "skip", "reason": string}]} with one entry per trial.`;
 }
+
+const LANGUAGE_NAMES = { ta: "Tamil", hi: "Hindi" } as const;
+
+/** The translations must come back one-for-one, or generateJson retries. */
+export function translateSchema(count: number) {
+  return z
+    .object({ translations: z.array(z.string()) })
+    .refine((reply) => reply.translations.length === count, `translations must have exactly ${count} items`) as unknown as z.ZodType<{
+    translations: string[];
+  }>;
+}
+
+export function translatePrompt(language: keyof typeof LANGUAGE_NAMES, texts: string[]): string {
+  return `Translate each numbered text below into simple, everyday ${LANGUAGE_NAMES[language]} that a cancer patient's family can understand.
+
+Rules:
+- Keep medicine names, drug names, trial IDs (like NCT06312176), test names (like HER2, ECOG, PD-L1), numbers, dates and units exactly as written.
+- Keep the meaning exact. Do not add advice, and never tell anyone to stop or change a medicine.
+- Use the ${LANGUAGE_NAMES[language]} script.
+
+TEXTS:
+${texts.map((t, i) => `[${i + 1}] ${t}`).join("\n")}
+
+Reply with only JSON: {"translations": [string, ...]} with exactly ${texts.length} items, in the same order.`;
+}

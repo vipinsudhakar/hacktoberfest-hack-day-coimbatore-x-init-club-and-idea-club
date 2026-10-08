@@ -68,3 +68,14 @@ export const UPLOAD_LIMITS = {
   maxTotalBase64Chars: 4_000_000,
   maxImageSide: 1600,
 } as const;
+
+export type Language = "ta" | "hi";
+
+/** POST /api/translate – Gemma 4 translates patient-facing explanations into Tamil or Hindi. */
+export interface TranslateRequest {
+  language: Language;
+  texts: string[];
+}
+export interface TranslateResponse {
+  texts: string[]; // same order and length as the request
+}

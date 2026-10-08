@@ -1,4 +1,5 @@
 import { useId } from "react";
+import { useT } from "@/lib/client/i18n";
 import { formatPhase, sameCity, type Evaluation } from "@/lib/client/results";
 import type { PatientProfile, Trial, TrialContact, TrialSite } from "@/lib/types";
 import { AlertTriangle, ExternalLink, HelpCircle, Mail, Phone, Refresh, XCircle } from "../Icons";
@@ -101,6 +102,7 @@ export function TrialCard({
   onRetry: () => void;
 }) {
   const titleId = useId();
+  const t = useT();
   const patientCity = profile.city;
   const match = evaluation.state === "done" ? evaluation.match : null;
   const phases = trial.phases.map(formatPhase).filter((p): p is string => Boolean(p));
@@ -138,13 +140,13 @@ export function TrialCard({
       {match && match.status !== "not_eligible" && (
         <p className="mt-2 font-semibold text-ink">
           {match.status === "likely"
-            ? "May qualify. Confirm with your oncologist."
-            : "May qualify if the open questions check out. Confirm with your oncologist."}
+            ? t("May qualify. Confirm with your oncologist.")
+            : t("May qualify if the open questions check out. Confirm with your oncologist.")}
         </p>
       )}
 
       <p className={`mt-3 max-w-[42rem] text-ink-2 ${match?.plainSummary ? "" : "line-clamp-4"}`}>
-        {match?.plainSummary || trial.summary}
+        {match?.plainSummary ? t(match.plainSummary) : trial.summary}
       </p>
       {trial.interventions.length > 0 && (
         <p className="mt-3 max-w-[42rem] text-sm">
@@ -155,7 +157,7 @@ export function TrialCard({
 
       {match?.status === "not_eligible" && match.blockers.length > 0 && (
         <div className="mt-6">
-          <h4 className={subhead}>Why it likely doesn&apos;t fit</h4>
+          <h4 className={subhead}>{t("Why it likely doesn't fit")}</h4>
           <ul className="mt-2 space-y-3">
             {match.blockers.map((b) => (
               <li key={b.id} className="flex gap-3">
@@ -165,7 +167,7 @@ export function TrialCard({
                     {b.text}
                     {b.medicine && <MedicineTag medicine={b.medicine} />}
                   </span>
-                  {b.reason && <span className="block text-sm text-ink-2">{b.reason}</span>}
+                  {b.reason && <span className="block text-sm text-ink-2">{t(b.reason)}</span>}
                 </span>
               </li>
             ))}
@@ -175,12 +177,12 @@ export function TrialCard({
 
       {match && match.status !== "not_eligible" && match.questions.length > 0 && (
         <div className="mt-6">
-          <h4 className={subhead}>Questions to ask your doctor</h4>
+          <h4 className={subhead}>{t("Questions to ask your doctor")}</h4>
           <ul className="mt-2 space-y-3">
             {match.questions.map((q, i) => (
               <li key={i} className="flex gap-3">
                 <HelpCircle size={20} className="mt-0.5 shrink-0 text-ask" />
-                <span className="text-ink">{q}</span>
+                <span className="text-ink">{t(q)}</span>
               </li>
             ))}
           </ul>

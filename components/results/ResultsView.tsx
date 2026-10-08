@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ScreenedOutTrial, TrialsResponse } from "@/lib/api";
+import { translateTexts } from "@/lib/client/api";
+import { TranslateContext } from "@/lib/client/i18n";
 import { profileHeadline } from "@/lib/client/profile";
 import { rowFilterKey, sortRows, type ResultFilter, type TrialRow } from "@/lib/client/results";
 import type { PatientProfile, Trial } from "@/lib/types";
@@ -10,6 +12,7 @@ import { ErrorNotice } from "../ErrorNotice";
 import { AlertTriangle, ArrowLeft, ChevronDown, Clock, ExternalLink, Info, Printer, Spinner } from "../Icons";
 import { buttonPrimary, buttonSecondary, pageTitle, panel, sectionTitle } from "../ui";
 import { ArrivingList } from "./ArrivingList";
+import { LanguageSwitch, type ResultLanguage } from "./LanguageSwitch";
 import { Countdown } from "./Countdown";
 import { MedicinesPanel } from "./MedicinesPanel";
 import { STATUS_META } from "./StatusBadge";
@@ -328,6 +331,28 @@ function NoneFit({ total, setAside, onEditProfile }: { total: number; setAside: 
   );
 }
 
+// Headings and status lines shown with every result; translated together with the explanations.
+const FIXED_TEXTS = [
+  "May qualify. Confirm with your oncologist.",
+  "May qualify if the open questions check out. Confirm with your oncologist.",
+  "Questions to ask your doctor",
+  "Why it likely doesn't fit",
+];
+
+/** The patient-facing explanations on screen: plain summaries, questions, blocking and medicine reasons. */
+function explanationTexts(rows: TrialRow[]): string[] {
+  const texts = new Set(FIXED_TEXTS);
+  for (const { evaluation } of rows) {
+    if (evaluation.state !== "done") continue;
+    const m = evaluation.match;
+    if (m.plainSummary) texts.add(m.plainSummary);
+    m.questions.forEach((q) => texts.add(q));
+    m.blockers.forEach((b) => b.reason && texts.add(b.reason));
+    m.results.forEach((r) => r.medicine && r.reason && texts.add(r.reason));
+  }
+  return [...texts].filter((t) => t.length <= 600).slice(0, 120);
+}
+
 export function ResultsView({
   profile,
   search,
@@ -358,8 +383,42 @@ export function ResultsView({
   const noneFit = allChecked && finished.every((r) => rowFilterKey(r) === "not_eligible");
   const nothingFound = ready !== null && rows.length === 0 && setAside.length === 0;
 
+  // Tamil / Hindi: once every trial is checked, Gemma translates the explanations in one batched call.
+  const [language, setLanguage] = useState<ResultLanguage>("en");
+  const [translated, setTranslated] = useState<{ key: string; map: Map<string, string> } | null>(null);
+  const [translateError, setTranslateError] = useState<string | null>(null);
+  const texts = useMemo(() => (allChecked ? explanationTexts(rows) : []), [allChecked, rows]);
+  const translateKey = language === "en" ? "" : `${language}:${texts.join("")}`;
+  useEffect(() => {
+    if (language === "en" || !texts.length || translated?.key === translateKey) return;
+    const controller = new AbortController();
+    translateTexts(language, texts, controller.signal)
+      .then((res) => setTranslated({ key: translateKey, map: new Map(texts.map((t, i) => [t, res.texts[i] ?? t])) }))
+      .catch((err: unknown) => {
+        if (controller.signal.aborted) return;
+        setTranslateError(err instanceof Error ? err.message : "The translation didn't work. Showing English.");
+      });
+    return () => controller.abort();
+  }, [language, texts, translateKey, translated?.key]);
+  const ready_ = language !== "en" && translated?.key === translateKey;
+  const t = useMemo(
+    () => (text: string) => (ready_ && translated ? (translated.map.get(text) ?? text) : text),
+    [ready_, translated],
+  );
+  const languageStatus =
+    language === "en"
+      ? allChecked
+        ? null
+        : "Available once every trial is checked."
+      : translateError
+        ? translateError
+        : ready_
+          ? "Explanations translated by Gemma 4. The trials' own rules stay in English."
+          : "Translating with Gemma 4…";
+
   return (
-    <div className="space-y-10">
+    <TranslateContext value={t}>
+    <div className="space-y-10" lang={ready_ ? language : "en"}>
       <header>
         <h1 className={pageTitle}>Trials the patient may qualify for</h1>
         <p className="mt-3 text-lg text-ink-2">{profileHeadline(profile)}</p>
@@ -373,6 +432,19 @@ export function ResultsView({
             </button>
           )}
         </div>
+        {ready && rows.length > 0 && (
+          <div className="mt-6">
+            <LanguageSwitch
+              value={language}
+              onChange={(next) => {
+                setTranslateError(null);
+                setLanguage(next);
+              }}
+              disabled={!allChecked}
+              status={languageStatus}
+            />
+          </div>
+        )}
       </header>
 
       {search.phase === "searching" && <SearchingSkeleton cancerType={profile.cancerType} />}
@@ -464,5 +536,6 @@ export function ResultsView({
 
       <Disclaimer />
     </div>
+    </TranslateContext>
   );
 }

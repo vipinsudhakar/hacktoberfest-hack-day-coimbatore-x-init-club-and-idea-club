@@ -4,6 +4,9 @@ import type {
   ExtractRequest,
   ExtractResponse,
   ImageUpload,
+  Language,
+  TranslateRequest,
+  TranslateResponse,
   TrialsRequest,
   TrialsResponse,
 } from "@/lib/api";
@@ -96,4 +99,8 @@ export function findTrials(profile: PatientProfile, signal?: AbortSignal) {
 
 export function evaluateTrial(profile: PatientProfile, trial: Trial, signal?: AbortSignal) {
   return postJson<EvaluateResponse>("/api/evaluate", { profile, trial } satisfies EvaluateRequest, signal);
+}
+
+export function translateTexts(language: Language, texts: string[], signal?: AbortSignal) {
+  return postJson<TranslateResponse>("/api/translate", { language, texts } satisfies TranslateRequest, signal);
 }

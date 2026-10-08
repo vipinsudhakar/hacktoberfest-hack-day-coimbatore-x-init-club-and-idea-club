@@ -1,3 +1,4 @@
+import { useT } from "@/lib/client/i18n";
 import { medicineGroups, type MedicineGroup, type TrialRow } from "@/lib/client/results";
 import type { Medication } from "@/lib/types";
 import { AlertTriangle, Pill } from "../Icons";
@@ -7,6 +8,7 @@ import { VERDICT_META } from "./StatusBadge";
 const shortTitle = (title: string) => (title.length > 90 ? `${title.slice(0, 88).trimEnd()}…` : title);
 
 function MedicineBlock({ group }: { group: MedicineGroup }) {
+  const t = useT();
   const serious = group.notes.filter((n) => n.rule.verdict !== "pass");
   const fine = group.notes.filter((n) => n.rule.verdict === "pass");
   const med = group.medication;
@@ -44,7 +46,7 @@ function MedicineBlock({ group }: { group: MedicineGroup }) {
                     <span className="text-ink-3">Trial rule: </span>
                     {rule.text}
                   </p>
-                  {rule.reason && <p className="mt-0.5 text-sm text-ink-2">{rule.reason}</p>}
+                  {rule.reason && <p className="mt-0.5 text-sm text-ink-2">{t(rule.reason)}</p>}
                   {rule.verdict === "fail" && med?.until && (
                     <p className="mt-1 text-sm text-ink">
                       Prescribed until: {med.until}. Ask the doctor whether this trial could be possible once the
