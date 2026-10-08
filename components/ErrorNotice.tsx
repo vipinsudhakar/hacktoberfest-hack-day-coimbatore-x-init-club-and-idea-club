@@ -15,14 +15,14 @@ export function ErrorNotice({
   children?: React.ReactNode;
 }) {
   return (
-    <div role="alert" className="rounded-xl border border-amber-300 bg-amber-50 p-4 text-amber-950">
+    <div role="alert" className="rounded-lg bg-ask-soft px-4 py-4 sm:px-5">
       <div className="flex gap-3">
-        <AlertTriangle className="mt-0.5 shrink-0 text-amber-700" />
+        <AlertTriangle className="mt-0.5 shrink-0 text-ask" />
         <div className="min-w-0 flex-1">
-          <p className="font-semibold">{title}</p>
-          <p className="mt-1 text-[0.95rem]">{message}</p>
+          <p className="font-semibold text-ink">{title}</p>
+          <p className="mt-0.5 text-ink-2">{message}</p>
           {(onRetry || children) && (
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
               {onRetry && (
                 <button type="button" onClick={onRetry} className={buttonSecondary}>
                   <Refresh size={18} />

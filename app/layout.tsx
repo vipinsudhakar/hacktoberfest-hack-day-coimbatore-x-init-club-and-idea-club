@@ -1,28 +1,43 @@
-import type { Metadata } from "next";
-import { Atkinson_Hyperlegible_Next, Source_Serif_4 } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { Atkinson_Hyperlegible_Mono, Atkinson_Hyperlegible_Next, Newsreader } from "next/font/google";
 import "./globals.css";
 
-// Atkinson Hyperlegible was designed by the Braille Institute for low-vision readers.
+// Atkinson Hyperlegible was designed by the Braille Institute for low-vision readers: the body voice.
 const body = Atkinson_Hyperlegible_Next({
   variable: "--font-body",
   subsets: ["latin"],
+  display: "swap",
 });
 
-const heading = Source_Serif_4({
-  variable: "--font-heading",
+// Newsreader's optical sizes keep headings calm and editorial at large sizes.
+const display = Newsreader({
+  variable: "--font-display",
   subsets: ["latin"],
+  axes: ["opsz"],
+  display: "swap",
+});
+
+// Only for real data: trial IDs, counts and timers.
+const data = Atkinson_Hyperlegible_Mono({
+  variable: "--font-data",
+  subsets: ["latin"],
+  display: "swap",
 });
 
 export const metadata: Metadata = {
   title: "TrialBridge",
   description:
-    "Upload a cancer patient's medical reports and see which clinical trials recruiting in India they may qualify for. Gemma 4 reads the reports and checks every eligibility rule.",
+    "Add photos of a cancer patient's reports and prescriptions and see which clinical trials recruiting in India they may qualify for. Gemma 4 reads the reports and checks every eligibility rule.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export const viewport: Viewport = {
+  themeColor: "#fcfcfa",
+};
+
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en" className={`${body.variable} ${heading.variable} h-full antialiased`}>
-      <body className="flex min-h-full flex-col font-sans text-base leading-relaxed">{children}</body>
+    <html lang="en-IN" className={`${body.variable} ${display.variable} ${data.variable} h-full antialiased`}>
+      <body className="flex min-h-full flex-col font-sans">{children}</body>
     </html>
   );
 }

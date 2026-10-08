@@ -10,7 +10,24 @@ import type {
 import type { PatientProfile, Trial } from "@/lib/types";
 
 /** An API call that failed; `message` is safe to show to the user. */
-export class RequestError extends Error {}
+export class RequestError extends Error {
+  /** HTTP status, or null when the server couldn't be reached. */
+  status: number | null;
+  /** Set on 429s from Gemma's free tier: the same request may be retried after this many seconds. */
+  retryAfterSeconds: number | null;
+
+  constructor(message: string, status: number | null = null, retryAfterSeconds: number | null = null) {
+    super(message);
+    this.name = "RequestError";
+    this.status = status;
+    this.retryAfterSeconds = retryAfterSeconds;
+  }
+}
+
+/** Seconds to wait before retrying, when the failure was a rate limit that can be retried. */
+export function retryAfter(error: unknown): number | null {
+  return error instanceof RequestError && error.status === 429 ? error.retryAfterSeconds : null;
+}
 
 export function isAbortError(error: unknown): boolean {
   return error instanceof DOMException && error.name === "AbortError";
@@ -44,15 +61,23 @@ async function postJson<TResponse>(path: string, body: unknown, signal?: AbortSi
   }
   if (!res.ok) {
     let message = "";
+    let retryAfterSeconds: number | null = null;
     try {
       const data: unknown = await res.json();
-      if (data && typeof data === "object" && "error" in data && typeof data.error === "string") {
-        message = data.error;
+      if (data && typeof data === "object") {
+        if ("error" in data && typeof data.error === "string") message = data.error;
+        if ("retryAfterSeconds" in data && typeof data.retryAfterSeconds === "number") {
+          retryAfterSeconds = data.retryAfterSeconds;
+        }
       }
     } catch {
       // Not JSON (e.g. a platform error page) – fall back to a generic message.
     }
-    throw new RequestError(message || fallbackMessage(res.status));
+    if (retryAfterSeconds === null && res.status === 429) {
+      const header = Number(res.headers.get("Retry-After"));
+      if (Number.isFinite(header) && header > 0) retryAfterSeconds = header;
+    }
+    throw new RequestError(message || fallbackMessage(res.status), res.status, retryAfterSeconds);
   }
   try {
     return (await res.json()) as TResponse;
