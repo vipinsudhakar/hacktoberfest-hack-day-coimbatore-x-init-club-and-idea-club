@@ -75,6 +75,8 @@ export interface Criterion {
   id: number;
   kind: CriterionKind;
   text: string;
+  /** Lead-in line for nested rules, e.g. "Adequate bone marrow function defined as follows". */
+  group: string | null;
 }
 
 /**
