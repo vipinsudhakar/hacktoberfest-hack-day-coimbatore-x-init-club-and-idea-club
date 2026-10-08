@@ -5,7 +5,7 @@ export function StepIndicator({ current }: { current: 0 | 1 | 2 }) {
   return (
     <nav aria-label="Progress" className="print:hidden">
       <p className="text-sm text-ink-3">
-        <span className="font-mono tabular-nums">Step {current + 1} of 3</span>
+        <span className="tabular-nums">Step {current + 1} of 3</span>
         <span aria-hidden="true" className="px-2 text-line-2">
           /
         </span>

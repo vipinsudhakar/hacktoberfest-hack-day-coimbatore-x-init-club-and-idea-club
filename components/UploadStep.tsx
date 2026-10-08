@@ -13,13 +13,13 @@ export const SAMPLES = [
   {
     id: "breast",
     title: "Breast cancer that has spread",
-    detail: "Woman, 52, Coimbatore · on hormone and targeted treatment",
+    detail: "Woman, 52 · Coimbatore",
     paths: ["/samples/breast-metastatic.png", "/samples/breast-metastatic-rx.png"],
   },
   {
     id: "lung",
     title: "Lung cancer with an EGFR change",
-    detail: "Man, 61, Tiruppur · after osimertinib",
+    detail: "Man, 61 · Tiruppur",
     paths: ["/samples/lung-egfr.png", "/samples/lung-egfr-rx.png"],
   },
 ] as const;

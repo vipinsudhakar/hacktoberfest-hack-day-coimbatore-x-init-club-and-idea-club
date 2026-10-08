@@ -28,7 +28,7 @@ function Row({
   return (
     <li className="py-5 first:pt-0 last:pb-4">
       <div className="flex items-center justify-between gap-3">
-        <p className="min-w-0 truncate font-semibold text-ink">{title}</p>
+        <p className="min-w-0 truncate font-semibold text-ink first-letter:uppercase">{title}</p>
         <button
           type="button"
           onClick={onRemove}

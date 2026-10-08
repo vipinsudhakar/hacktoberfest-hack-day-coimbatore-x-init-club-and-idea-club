@@ -139,8 +139,8 @@ export function DoctorSummary({
         <section className="mt-5 break-inside-avoid">
           <h2 className="font-serif text-[13pt] font-semibold">Medicine notes</h2>
           <p className="mt-1">
-            Trial rules about other medicines, checked against the patient&apos;s current medicines. No medicine has been
-            stopped or changed because of this summary.
+            Trial rules about other medicines, checked against the patient&apos;s current medicines. The family has been
+            told not to stop or change any medicine without the treating doctor&apos;s advice.
           </p>
           <ul className="mt-1 list-disc pl-5">
             {medicineNotes.map(({ label, trial, rule }) => (

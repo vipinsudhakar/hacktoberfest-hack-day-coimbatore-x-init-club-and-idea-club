@@ -16,8 +16,8 @@ function MedicineBlock({ group }: { group: MedicineGroup }) {
 
   return (
     <li className="py-5 first:pt-0 last:pb-0">
-      <h3 className="font-semibold text-ink">
-        <span className="capitalize">{group.label}</span>
+      <h3 className="font-semibold text-ink first-letter:uppercase">
+        {group.label}
         {med && med.name && med.genericName && med.name.toLowerCase() !== med.genericName.toLowerCase() && (
           <span className="font-normal text-ink-3"> ({med.name})</span>
         )}
