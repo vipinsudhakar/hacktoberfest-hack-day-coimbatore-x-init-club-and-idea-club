@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { ViewTransition, addTransitionType, startTransition, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { UPLOAD_LIMITS } from "@/lib/api";
 import { RequestError, errorMessage, evaluateTrial, extractProfile, findTrials, isAbortError, retryAfter } from "@/lib/client/api";
 import { isAcceptedImage, prepareImages } from "@/lib/client/images";
-import { runWithConcurrency } from "@/lib/client/pool";
+import { createLimiter, runWithConcurrency } from "@/lib/client/pool";
 import { cleanProfile, emptyProfile, normalizeProfile } from "@/lib/client/profile";
 import type { Evaluation, TrialRow } from "@/lib/client/results";
 import type { PatientProfile, Trial } from "@/lib/types";
@@ -26,6 +26,16 @@ const EVALUATE_CONCURRENCY = 3;
 /** Automatic retries after a rate-limit answer, before falling back to a manual Retry button. */
 const MAX_AUTO_RETRIES = 3;
 const STEP_NUMBER = { start: 0, reading: 0, review: 1, results: 2 } as const;
+/** Order of the screens, so a step change knows whether it moves forward or back. */
+const STEP_ORDER = { start: 0, reading: 1, review: 2, results: 3 } as const;
+const STEP_TITLE = {
+  start: null,
+  reading: "Reading the reports",
+  review: "Check the details",
+  results: "Trial results",
+} as const;
+/** Step content slides a little in the direction of travel; nothing else (filters, results arriving) does. */
+const STEP_MOTION = { "step-forward": "step-forward", "step-back": "step-back", default: "none" };
 
 /** Resolves after `ms`, or early when the run is cancelled. */
 function wait(ms: number, signal: AbortSignal): Promise<void> {
@@ -54,21 +64,42 @@ export function TrialBridgeApp() {
   const [trials, setTrials] = useState<Trial[]>([]);
   const [evaluations, setEvaluations] = useState<Record<string, Evaluation>>({});
   const [printedAt, setPrintedAt] = useState<string | null>(null);
+  const [firstLikely, setFirstLikely] = useState<string | null>(null);
 
   const nextId = useRef(1);
   const readAbort = useRef<AbortController | null>(null);
   const runAbort = useRef<AbortController | null>(null);
   const matchedProfile = useRef<PatientProfile | null>(null);
+  const limiter = useRef(createLimiter(EVALUATE_CONCURRENCY));
+  const celebrated = useRef(false);
   const topRef = useRef<HTMLDivElement>(null);
 
   // Move focus to the top of each new step (not on first load) so keyboard and screen-reader users start there.
+  // A layout effect, so the scroll happens inside the step's view transition rather than after it.
   const shownStep = useRef<Step>("start");
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (shownStep.current === step) return;
     shownStep.current = step;
     topRef.current?.focus({ preventScroll: true });
     window.scrollTo({ top: 0 });
   }, [step]);
+
+  // Name each step in the browser tab, so a family member with many tabs open can find it again.
+  useEffect(() => {
+    const title = STEP_TITLE[step];
+    document.title = title ? `${title} · TrialBridge` : "TrialBridge: cancer trials in India, explained";
+  }, [step]);
+
+  /** Changes screen inside a transition, tagged forward or back so the content slides the right way. */
+  const currentStep = useRef<Step>("start");
+  function go(next: Step) {
+    const forward = STEP_ORDER[next] >= STEP_ORDER[currentStep.current];
+    currentStep.current = next;
+    startTransition(() => {
+      addTransitionType(forward ? "step-forward" : "step-back");
+      setStep(next);
+    });
+  }
 
   // Stamp the printout with the time it was printed (button or Ctrl+P).
   useEffect(() => {
@@ -83,8 +114,10 @@ export function TrialBridgeApp() {
     const room = Math.max(0, UPLOAD_LIMITS.maxImages - uploads.length);
     const taken = accepted.slice(0, room);
     const messages: string[] = [];
-    if (accepted.length < files.length) {
-      messages.push("Only JPG, PNG or WebP photos can be read. For a PDF, take a screenshot of each page.");
+    const rejected = files.filter((f) => !isAcceptedImage(f));
+    if (rejected.length > 0) {
+      const names = rejected.length === 1 ? `“${rejected[0].name}” isn't a photo we can read.` : `${rejected.length} files aren't photos we can read.`;
+      messages.push(`${names} Only JPG, PNG or WebP photos work. For a PDF, take a screenshot of each page.`);
     }
     if (taken.length < accepted.length) messages.push(`You can add up to ${UPLOAD_LIMITS.maxImages} photos at a time.`);
     setNotice(messages.join(" ") || null);
@@ -111,7 +144,7 @@ export function TrialBridgeApp() {
     setProblem(null);
     setNotice(null);
     setReading({ count: blobs.length, phase: "preparing", previews });
-    setStep("reading");
+    go("reading");
     try {
       const images = await prepareImages(blobs);
       if (controller.signal.aborted) return;
@@ -120,21 +153,24 @@ export function TrialBridgeApp() {
       if (controller.signal.aborted) return;
       setProfile(normalizeProfile(res.profile));
       setFromReports(true);
-      setStep("review");
+      go("review");
     } catch (error) {
       if (isAbortError(error) || controller.signal.aborted) return;
+      const busy = error instanceof RequestError && error.status === 429;
       setProblem({
-        title: "We couldn't read the reports",
-        message: errorMessage(error),
+        title: busy ? "Gemma is busy right now" : "We couldn't read the reports",
+        message: busy
+          ? "Gemma's free service is answering a lot of people at once. Wait a minute, then try again. Your photos are still here."
+          : errorMessage(error),
         retry: () => void readReports(blobs, previews),
       });
-      setStep("start");
+      go("start");
     }
   }
 
   function cancelReading() {
     readAbort.current?.abort();
-    setStep("start");
+    go("start");
   }
 
   /** Loads whichever of the sample's pages exist (report, prescription); a missing page is skipped. */
@@ -171,7 +207,7 @@ export function TrialBridgeApp() {
     setProblem(null);
     setProfile(emptyProfile());
     setFromReports(false);
-    setStep("review");
+    go("review");
   }
 
   function setEvaluation(nctId: string, evaluation: Evaluation) {
@@ -180,12 +216,21 @@ export function TrialBridgeApp() {
 
   /** Checks one trial; on a rate limit waits as long as Gemma asks and tries again, up to MAX_AUTO_RETRIES times. */
   async function evaluate(p: PatientProfile, trial: Trial, signal: AbortSignal) {
+    const limit = limiter.current;
     for (let attempt = 0; ; attempt++) {
-      setEvaluation(trial.nctId, { state: "checking" });
       try {
-        const { match } = await evaluateTrial(p, trial, signal);
+        const { match } = await limit(() => {
+          if (!signal.aborted) setEvaluation(trial.nctId, { state: "checking" });
+          return evaluateTrial(p, trial, signal);
+        });
         if (signal.aborted) return;
         setEvaluation(trial.nctId, { state: "done", match });
+        if (match.status === "likely" && !celebrated.current) {
+          // The first likely match of this run gets one quiet moment of emphasis, then settles.
+          celebrated.current = true;
+          setFirstLikely(trial.nctId);
+          window.setTimeout(() => setFirstLikely((id) => (id === trial.nctId ? null : id)), 2400);
+        }
         return;
       } catch (error) {
         if (signal.aborted) return;
@@ -218,13 +263,18 @@ export function TrialBridgeApp() {
     const p = cleanProfile(input);
     matchedProfile.current = p;
     setProfile(p);
+    limiter.current = createLimiter(EVALUATE_CONCURRENCY);
+    celebrated.current = false;
+    setFirstLikely(null);
     setSearch({ phase: "searching" });
     setTrials([]);
     setEvaluations({});
-    setStep("results");
+    go("results");
     try {
-      const response = await findTrials(p, controller.signal);
+      const found = await findTrials(p, controller.signal);
       if (controller.signal.aborted) return;
+      // Older servers don't send screenedOut: treat it as nothing set aside.
+      const response = { ...found, screenedOut: found.screenedOut ?? [] };
       setTrials(response.trials);
       setEvaluations(Object.fromEntries(response.trials.map((t) => [t.nctId, { state: "queued" } as Evaluation])));
       setSearch({ phase: "ready", response });
@@ -245,9 +295,19 @@ export function TrialBridgeApp() {
     if (matchedProfile.current && signal && !signal.aborted) void evaluate(matchedProfile.current, trial, signal);
   }
 
+  /** A trial the quick screen set aside joins the normal queue: same checks, same states, same limit. */
+  function checkAnyway(trial: Trial) {
+    const signal = runAbort.current?.signal;
+    if (!matchedProfile.current || !signal || signal.aborted) return;
+    if (trials.some((t) => t.nctId === trial.nctId)) return;
+    setTrials((prev) => [...prev, trial]);
+    setEvaluation(trial.nctId, { state: "queued" });
+    void evaluate(matchedProfile.current, trial, signal);
+  }
+
   function editProfile() {
     runAbort.current?.abort();
-    setStep("review");
+    go("review");
   }
 
   const rows: TrialRow[] = trials.map((trial, index) => ({
@@ -262,6 +322,8 @@ export function TrialBridgeApp() {
       <div ref={topRef} tabIndex={-1} className={`space-y-10 outline-none ${printable ? "print:hidden" : ""}`}>
         <StepIndicator current={STEP_NUMBER[step]} />
 
+        <ViewTransition key={step} enter={STEP_MOTION} exit={STEP_MOTION} default="none">
+          <div className="space-y-10">
         {step === "start" && (
           <>
             {problem && (
@@ -294,7 +356,7 @@ export function TrialBridgeApp() {
             fromReports={fromReports}
             onChange={setProfile}
             onSubmit={() => void startMatching(profile)}
-            onBack={() => setStep("start")}
+            onBack={() => go("start")}
           />
         )}
 
@@ -305,9 +367,13 @@ export function TrialBridgeApp() {
             rows={rows}
             onRetrySearch={() => void startMatching(profile)}
             onRetryTrial={retryTrial}
+            onCheckAnyway={checkAnyway}
+            celebrateId={firstLikely}
             onEditProfile={editProfile}
           />
         )}
+          </div>
+        </ViewTransition>
       </div>
 
       {printable && search.phase === "ready" && (

@@ -15,7 +15,7 @@ function fieldName(field: string): string {
 export function EvidencePanel({ evidence }: { evidence: PatientProfile["evidence"] }) {
   if (evidence.length === 0) return null;
   return (
-    <details className="rounded-lg border border-line bg-white">
+    <details className="rounded-lg border border-line bg-surface">
       <summary className="flex min-h-14 items-center gap-4 rounded-lg px-4 py-3 hover:bg-stone sm:px-5">
         <span className="min-w-0 flex-1">
           <span className="block font-semibold text-ink">What Gemma read from the reports</span>

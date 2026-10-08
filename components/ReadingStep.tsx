@@ -42,8 +42,8 @@ export function ReadingStep({
     <section aria-labelledby="reading-heading" aria-busy="true" className="max-w-[42rem]">
       {previews.length > 0 && (
         <ul aria-hidden="true" className="mb-10 flex flex-wrap gap-3">
-          {previews.map((src) => (
-            <li key={src} className="read-scan relative w-20 overflow-hidden rounded-md border border-line bg-stone sm:w-24">
+          {previews.map((src, i) => (
+            <li key={src} style={{ "--scan-delay": `${i * 350}ms` } as React.CSSProperties} className="read-scan relative w-20 overflow-hidden rounded-md border border-line bg-stone sm:w-24">
               {/* eslint-disable-next-line @next/next/no-img-element -- local blob preview */}
               <img src={src} alt="" className="aspect-[3/4] w-full object-cover object-top" />
             </li>

@@ -51,6 +51,8 @@ export function DoctorSummary({
 }) {
   const count = (key: string) => rows.filter((r) => rowFilterKey(r) === key).length;
   const unchecked = rows.filter((r) => r.evaluation.state !== "done").length;
+  const checking = new Set(rows.map((r) => r.trial.nctId));
+  const setAside = (response.screenedOut ?? []).filter((s) => !checking.has(s.trial.nctId));
   const medicineNotes = medicineGroups(profile.medications, rows).flatMap((g) =>
     g.notes.filter((n) => n.rule.verdict !== "pass").map((n) => ({ label: g.label, ...n })),
   );
@@ -88,6 +90,8 @@ export function DoctorSummary({
         {response.source === "snapshot" ? " (saved copy of the registry)" : ""}. {rows.length} trials were checked
         rule by rule by Gemma 4: {count("likely")} likely, {count("possible")} possible, {count("not_eligible")} not
         eligible{unchecked > 0 ? `, ${unchecked} not checked` : ""}.
+        {setAside.length > 0 &&
+          ` ${setAside.length} more ${setAside.length === 1 ? "was" : "were"} set aside at a first look as meant for a different group of patients and not checked rule by rule: ${setAside.map((s) => s.trial.nctId).join(", ")}.`}
       </p>
       {shortlist.length === 0 && <p className="mt-2">No likely or possible matches were found.</p>}
 

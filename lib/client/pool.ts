@@ -18,3 +18,24 @@ export async function runWithConcurrency<T>(
   const lanes = Math.max(1, Math.min(limit, items.length));
   await Promise.all(Array.from({ length: lanes }, lane));
 }
+
+/**
+ * A shared cap on calls in flight, so work that joins after a pool has started (a manual retry, or a
+ * set-aside trial the user asks to check anyway) still never exceeds it.
+ * A finishing call hands its slot straight to the next waiter.
+ */
+export function createLimiter(limit: number) {
+  let active = 0;
+  const waiting: (() => void)[] = [];
+  return async function run<T>(task: () => Promise<T>): Promise<T> {
+    if (active < limit) active++;
+    else await new Promise<void>((resolve) => waiting.push(resolve));
+    try {
+      return await task();
+    } finally {
+      const next = waiting.shift();
+      if (next) next();
+      else active--;
+    }
+  };
+}

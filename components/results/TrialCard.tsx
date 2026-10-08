@@ -89,11 +89,14 @@ export function TrialCard({
   trial,
   evaluation,
   patientCity,
+  celebrate = false,
   onRetry,
 }: {
   trial: Trial;
   evaluation: Evaluation;
   patientCity: string | null;
+  /** The run's first likely match: a soft halo and a self-drawing tick, once. */
+  celebrate?: boolean;
   onRetry: () => void;
 }) {
   const titleId = useId();
@@ -102,9 +105,9 @@ export function TrialCard({
   const hasPeople = trial.indiaSites.length > 0 || trial.contacts.some((c) => c.phone || c.email);
 
   return (
-    <article aria-labelledby={titleId} className={`${panel} px-5 py-6 sm:px-7`}>
+    <article aria-labelledby={titleId} className={`${panel} px-5 py-6 sm:px-7 ${celebrate ? "first-likely" : ""}`}>
       <div className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
-        {match && <StatusBadge status={match.status} />}
+        {match && <StatusBadge status={match.status} draw={celebrate} />}
         {evaluation.state === "error" && (
           <span className="inline-flex items-center gap-1.5 rounded-sm bg-ask-soft px-2 py-0.5 font-semibold text-ask">
             <AlertTriangle size={16} /> Couldn&apos;t check

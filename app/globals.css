@@ -3,7 +3,8 @@
 /*
  * TrialBridge: "the clinic letter".
  * Paper-white page, ink text, one ultramarine accent. Status colours (fine / rules you out / needs checking)
- * are reserved for verdicts and always travel with an icon and words. Every text pair below meets WCAG AA.
+ * are reserved for verdicts and always travel with an icon and words. Every text pair below meets WCAG AA,
+ * in both themes. Colours are defined once here as tokens; components only ever use the token names.
  */
 @theme {
   --font-sans: var(--font-body), ui-sans-serif, system-ui, sans-serif;
@@ -27,7 +28,9 @@
   --text-4xl: 2.875rem;
   --text-4xl--line-height: 1.06;
 
+  /* Light ("paper") is the default and is always used for print. */
   --color-paper: #fcfcfa;
+  --color-surface: #ffffff; /* cards and fields that sit on the paper */
   --color-stone: #f3f2ee;
   --color-stone-2: #e9e7e1;
   --color-ink: #121519;
@@ -38,6 +41,7 @@
 
   --color-accent: #2643a6;
   --color-accent-strong: #1b3285;
+  --color-on-accent: #ffffff;
   --color-accent-soft: #edf0fa;
   --color-accent-line: #c5cfee;
 
@@ -48,16 +52,82 @@
   --color-ask: #855800;
   --color-ask-soft: #fbf1dc;
 
+  --color-selection: #d5ddf6;
+  --color-scrollbar: #c9c6be;
+
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 12px;
 
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+/*
+ * Dark ("the same letter, read at night"): warm off-white ink on a deep blue-black, the accent lifted to a soft
+ * periwinkle so it stays readable, and primary buttons switch to dark text on the light accent.
+ * Screen only, so a printout from dark mode still comes out as a clean paper page.
+ */
+@media screen and (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --color-paper: #121417;
+    --color-surface: #181b1f;
+    --color-stone: #1e2126;
+    --color-stone-2: #2b2f36;
+    --color-ink: #ecebe6; /* 15.5:1 on paper */
+    --color-ink-2: #bcc0c7; /* 10.1:1 */
+    --color-ink-3: #979ca5; /* 6.7:1, 5.9:1 on stone */
+    --color-line: #2b2e34;
+    --color-line-2: #6e737c; /* 3.9:1 */
+    --color-accent: #9fb3ff; /* 9.1:1 */
+    --color-accent-strong: #c3d0ff;
+    --color-on-accent: #0c1330;
+    --color-accent-soft: #1c2442;
+    --color-accent-line: #3d4b80;
+    --color-pass: #7dd3a0;
+    --color-pass-soft: #13271c;
+    --color-fail: #ff9585;
+    --color-fail-soft: #2e1815;
+    --color-ask: #efbd5e;
+    --color-ask-soft: #2a2111;
+    --color-selection: #2c3a70;
+    --color-scrollbar: #3a3e45;
+  }
+}
+@media screen {
+  :root[data-theme="dark"] {
+    color-scheme: dark;
+    --color-paper: #121417;
+    --color-surface: #181b1f;
+    --color-stone: #1e2126;
+    --color-stone-2: #2b2f36;
+    --color-ink: #ecebe6;
+    --color-ink-2: #bcc0c7;
+    --color-ink-3: #979ca5;
+    --color-line: #2b2e34;
+    --color-line-2: #6e737c;
+    --color-accent: #9fb3ff;
+    --color-accent-strong: #c3d0ff;
+    --color-on-accent: #0c1330;
+    --color-accent-soft: #1c2442;
+    --color-accent-line: #3d4b80;
+    --color-pass: #7dd3a0;
+    --color-pass-soft: #13271c;
+    --color-fail: #ff9585;
+    --color-fail-soft: #2e1815;
+    --color-ask: #efbd5e;
+    --color-ask-soft: #2a2111;
+    --color-selection: #2c3a70;
+    --color-scrollbar: #3a3e45;
+  }
 }
 
 :root {
   color-scheme: light;
-  scrollbar-color: #c9c6be transparent;
+  scrollbar-color: var(--color-scrollbar) transparent;
+  /* Lets <details> animate to their natural height where the browser supports it. */
+  interpolate-size: allow-keywords;
 }
 
 body {
@@ -70,7 +140,7 @@ body {
 }
 
 ::selection {
-  background: #d5ddf6;
+  background: var(--color-selection);
   color: var(--color-ink);
 }
 
@@ -95,6 +165,12 @@ a {
   text-decoration-thickness: 1px;
 }
 
+input[type="number"] {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- Disclosure (rule checklists, health details, evidence, more hospitals) ---------- */
+
 details > summary {
   list-style: none;
   cursor: pointer;
@@ -102,29 +178,161 @@ details > summary {
 details > summary::-webkit-details-marker {
   display: none;
 }
+details > summary .chevron {
+  transition: transform 220ms var(--ease-out-quart);
+}
 details[open] > summary .chevron {
   transform: rotate(180deg);
 }
-
-input[type="number"] {
-  font-variant-numeric: tabular-nums;
+details::details-content {
+  block-size: 0;
+  overflow: clip;
+  opacity: 0;
+  transition:
+    block-size 260ms var(--ease-out-quart),
+    opacity 200ms ease-out,
+    content-visibility 260ms allow-discrete;
+}
+details[open]::details-content {
+  block-size: auto;
+  opacity: 1;
 }
 
-/* The one authored motion: a soft band moving down each report while Gemma reads it. */
-@keyframes read-scan {
+/* ---------- Press feedback: a small give under the finger, never a bounce ---------- */
+
+.press {
+  transition-property: background-color, border-color, color, box-shadow, transform;
+  transition-duration: 150ms;
+  transition-timing-function: var(--ease-out-quart);
+}
+.press:active:not(:disabled) {
+  transform: scale(0.98);
+  transition-duration: 80ms;
+}
+
+/* ---------- Step changes (React <ViewTransition>): content slides a little in the direction of travel ---------- */
+
+::view-transition {
+  pointer-events: none;
+}
+::view-transition-old(.step-forward),
+::view-transition-old(.step-back) {
+  animation: 140ms ease-in both tb-fade-out;
+}
+::view-transition-new(.step-forward) {
+  --tb-from: 18px;
+  animation:
+    260ms var(--ease-out-expo) 60ms both tb-fade-in,
+    320ms var(--ease-out-expo) 60ms both tb-slide;
+}
+::view-transition-new(.step-back) {
+  --tb-from: -18px;
+  animation:
+    260ms var(--ease-out-expo) 60ms both tb-fade-in,
+    320ms var(--ease-out-expo) 60ms both tb-slide;
+}
+@keyframes tb-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes tb-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes tb-slide {
+  from {
+    translate: var(--tb-from) 0;
+  }
+}
+
+/* ---------- Results arriving: each checked trial settles into the list ---------- */
+
+@keyframes tb-arrive {
+  from {
+    opacity: 0;
+    translate: 0 10px;
+  }
+}
+
+/* The first likely match: a soft green halo that breathes out once, and its tick draws itself. */
+@keyframes tb-halo {
   0% {
-    transform: translateY(-110%);
+    box-shadow: 0 0 0 0 color-mix(in oklab, var(--color-pass) 35%, transparent);
   }
   100% {
-    transform: translateY(110%);
+    box-shadow: 0 0 0 14px color-mix(in oklab, var(--color-pass) 0%, transparent);
+  }
+}
+.first-likely {
+  animation: tb-halo 900ms var(--ease-out-quart) 250ms 1 both;
+}
+@keyframes tb-draw {
+  from {
+    stroke-dashoffset: 1;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+.draw-tick path {
+  stroke-dasharray: 1;
+  animation: tb-draw 420ms var(--ease-out-quart) 200ms both;
+}
+
+/* Loading placeholders: a slow, quiet sheen. */
+@keyframes tb-sheen {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -100% 0;
+  }
+}
+.skeleton {
+  border-radius: 4px;
+  background: linear-gradient(
+      90deg,
+      var(--color-stone) 0%,
+      var(--color-stone-2) 45%,
+      var(--color-stone) 90%
+    )
+    0 0 / 200% 100%;
+  animation: tb-sheen 1.6s ease-in-out infinite;
+}
+
+/* ---------- Reading the reports: a thin line passes down each page, with a soft wake above it ---------- */
+
+@keyframes read-scan {
+  0% {
+    translate: 0 -100%;
+    opacity: 0;
+  }
+  12% {
+    opacity: 1;
+  }
+  88% {
+    opacity: 1;
+  }
+  100% {
+    translate: 0 100%;
+    opacity: 0;
   }
 }
 .read-scan::after {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, transparent 0%, rgb(38 67 166 / 0.16) 45%, rgb(38 67 166 / 0.28) 50%, transparent 56%);
-  animation: read-scan 2.6s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  background: linear-gradient(
+    180deg,
+    transparent 0%,
+    color-mix(in oklab, var(--color-accent) 8%, transparent) 70%,
+    color-mix(in oklab, var(--color-accent) 22%, transparent) 97%,
+    var(--color-accent) 98.5%,
+    transparent 100%
+  );
+  animation: read-scan 2.8s cubic-bezier(0.45, 0, 0.55, 1) var(--scan-delay, 0ms) infinite both;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -135,8 +343,15 @@ input[type="number"] {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
-  .read-scan::after {
-    display: none;
+  .read-scan::after,
+  .first-likely,
+  .skeleton {
+    animation: none !important;
+  }
+  /* Steps still cross-fade, but nothing travels. */
+  ::view-transition-new(.step-forward),
+  ::view-transition-new(.step-back) {
+    animation: 200ms ease-out both tb-fade-in;
   }
 }
 

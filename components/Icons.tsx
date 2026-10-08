@@ -23,14 +23,23 @@ function Svg({ size = 20, children, ...rest }: IconProps & { children: React.Rea
   );
 }
 
-export function LogoMark(props: IconProps) {
-  // A single arch on two piers: the bridge between a patient's reports and a trial's rules.
+/** The bridge drawn on a 32px grid: a deck resting on a stone arch, between two banks. Shared by every logo use. */
+export const LOGO_PATHS = ["M7 10.5h18", "M8 24.5V19a8 8 0 0 1 16 0v5.5", "M12.5 24.5v-4.75a3.5 3.5 0 0 1 7 0v4.75", "M4.5 24.5h23"];
+
+/**
+ * TrialBridge's mark: the bridge, in the page's own colours, on an accent tile.
+ * The bridge is the link between a patient's reports and a trial's rules.
+ */
+export function LogoMark({ size = 28, className = "" }: { size?: number; className?: string }) {
   return (
-    <Svg {...props} strokeWidth={2}>
-      <path d="M3 19h18" />
-      <path d="M5 19v-6.5a7 7 0 0 1 14 0V19" />
-      <path d="M9 19v-6.5a3 3 0 0 1 6 0V19" />
-    </Svg>
+    <svg width={size} height={size} viewBox="0 0 32 32" aria-hidden="true" focusable="false" className={className}>
+      <rect width="32" height="32" rx="8" className="fill-accent" />
+      <g fill="none" strokeWidth={2.25} strokeLinecap="round" strokeLinejoin="round" className="stroke-on-accent">
+        {LOGO_PATHS.map((d) => (
+          <path key={d} d={d} />
+        ))}
+      </g>
+    </svg>
   );
 }
 
@@ -73,7 +82,7 @@ export function CheckCircle(props: IconProps) {
   return (
     <Svg {...props}>
       <circle cx="12" cy="12" r="9" />
-      <path d="m8.5 12.5 2.5 2.5 4.5-5" />
+      <path d="m8.5 12.5 2.5 2.5 4.5-5" pathLength={1} />
     </Svg>
   );
 }

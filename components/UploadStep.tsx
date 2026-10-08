@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { UPLOAD_LIMITS } from "@/lib/api";
 import { ACCEPTED_IMAGE_TYPES } from "@/lib/client/images";
-import { ArrowRight, Camera, Close, Spinner } from "./Icons";
+import { AlertTriangle, ArrowRight, Camera, Close, Spinner } from "./Icons";
 import { buttonPrimary, buttonSecondary, pageTitle, sectionTitle, textLink } from "./ui";
 
 export type UploadItem = { id: number; blob: Blob; name: string; previewUrl: string };
@@ -24,6 +24,12 @@ export const SAMPLES = [
   },
 ] as const;
 export type Sample = (typeof SAMPLES)[number];
+
+const HOW_IT_WORKS = [
+  ["Add the reports", "Photos of the clinic summary, scans, blood tests and prescriptions. Gemma 4 reads them."],
+  ["Check what it read", "Every detail it found is shown with the words it came from, so you can fix anything wrong."],
+  ["See the trials, rule by rule", "Each trial recruiting in India is checked against its own rules, with questions for the oncologist."],
+] as const;
 
 export function UploadStep({
   items,
@@ -59,6 +65,29 @@ export function UploadStep({
           of every trial recruiting in India.
         </p>
       </header>
+
+      <section aria-labelledby="how-heading" className="-mt-4">
+        <h2 id="how-heading" className="text-sm font-semibold text-ink">
+          How TrialBridge works
+        </h2>
+        {/* Three stops joined by one hairline: across on wide screens, down the side on phones. */}
+        <ol className="relative mt-4 grid gap-5 before:absolute before:bottom-3 before:left-3 before:top-3 before:w-px before:bg-line-2/50 sm:grid-cols-3 sm:gap-8 sm:before:bottom-auto sm:before:left-3 sm:before:right-0 sm:before:top-3 sm:before:h-px sm:before:w-auto">
+          {HOW_IT_WORKS.map(([title, body], i) => (
+            <li key={title} className="relative flex gap-4 sm:flex-col sm:gap-3">
+              <span
+                aria-hidden="true"
+                className="flex size-6 shrink-0 items-center justify-center rounded-full border border-accent-line bg-paper font-mono text-xs font-semibold tabular-nums text-accent"
+              >
+                {i + 1}
+              </span>
+              <p className="text-sm text-ink-2">
+                <strong className="block text-base font-semibold text-ink">{title}</strong>
+                {body}
+              </p>
+            </li>
+          ))}
+        </ol>
+      </section>
 
       <section aria-labelledby="upload-heading">
         <h2 id="upload-heading" className={sectionTitle}>
@@ -116,7 +145,12 @@ export function UploadStep({
         </div>
 
         <div role="status" className="empty:hidden">
-          {notice && <p className="mt-3 rounded-md bg-ask-soft px-3 py-2 text-sm text-ink">{notice}</p>}
+          {notice && (
+            <p className="mt-3 flex gap-2.5 rounded-md bg-ask-soft px-3.5 py-2.5 text-sm text-ink">
+              <AlertTriangle size={18} className="mt-px shrink-0 text-ask" />
+              <span>{notice}</span>
+            </p>
+          )}
         </div>
 
         {items.length > 0 && (
@@ -139,7 +173,7 @@ export function UploadStep({
                     aria-label={`Remove photo ${i + 1} (${item.name})`}
                     className="absolute right-1 top-1 flex size-11 items-center justify-center rounded-md text-ink hover:text-fail"
                   >
-                    <span className="flex size-7 items-center justify-center rounded-full bg-white shadow-[0_1px_3px_rgb(18_21_25/0.25)]">
+                    <span className="flex size-7 items-center justify-center rounded-full bg-surface shadow-[0_1px_3px_rgb(18_21_25/0.25)]">
                       <Close size={15} />
                     </span>
                   </button>
@@ -178,7 +212,7 @@ export function UploadStep({
                   onClick={() => onSample(sample)}
                   disabled={loadingSample !== null}
                   aria-busy={loading || undefined}
-                  className="group flex min-h-11 w-full items-center gap-3 rounded-lg border border-line bg-white px-4 py-3.5 text-left transition-colors duration-150 hover:border-ink-2 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="press group flex min-h-11 w-full items-center gap-3 rounded-lg border border-line bg-surface px-4 py-3.5 text-left hover:border-ink-2 hover:shadow-[0_2px_8px_-4px_rgb(18_21_25/0.18)] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <span className="min-w-0 flex-1">
                     <span className="block font-semibold text-ink">{sample.title}</span>

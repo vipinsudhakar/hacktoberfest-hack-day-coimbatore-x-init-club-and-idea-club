@@ -16,10 +16,14 @@ export function StepIndicator({ current }: { current: 0 | 1 | 2 }) {
           const state = i < current ? "done" : i === current ? "current" : "todo";
           return (
             <li key={label} aria-current={state === "current" ? "step" : undefined}>
-              <span
-                aria-hidden="true"
-                className={`block h-1 rounded-full ${state === "todo" ? "bg-stone-2" : "bg-accent"}`}
-              />
+              {/* Each segment fills from the left as the reader reaches it, and empties back on the way back. */}
+              <span aria-hidden="true" className="block h-1 overflow-hidden rounded-full bg-stone-2">
+                <span
+                  className={`block h-full origin-left rounded-full bg-accent transition-transform duration-500 ease-[var(--ease-out-expo)] ${
+                    state === "todo" ? "scale-x-0" : "scale-x-100"
+                  }`}
+                />
+              </span>
               <span className={`mt-1.5 hidden text-xs sm:block ${state === "current" ? "text-ink" : "text-ink-3"}`}>
                 {label}
               </span>
