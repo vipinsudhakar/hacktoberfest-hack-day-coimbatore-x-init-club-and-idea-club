@@ -185,11 +185,11 @@ export function ProfileEditor({
       </Section>
 
       <div className="sticky bottom-0 z-10 -mx-4 border-t border-line bg-canvas/95 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-2xl sm:border sm:px-5">
-        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center justify-between gap-3">
           <button type="button" onClick={onBack} className={buttonSecondary}>
-            <ArrowLeft size={18} /> Back to reports
+            <ArrowLeft size={18} /> Back<span className="hidden sm:inline"> to reports</span>
           </button>
-          <button type="submit" className={buttonPrimary}>
+          <button type="submit" className={`${buttonPrimary} flex-1 sm:flex-none`}>
             Find matching trials
           </button>
         </div>

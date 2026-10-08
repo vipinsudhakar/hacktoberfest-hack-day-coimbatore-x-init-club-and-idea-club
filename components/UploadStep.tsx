@@ -137,7 +137,7 @@ export function UploadStep({
         )}
 
         <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center">
-          <button type="button" onClick={onRead} disabled={items.length === 0} className={buttonPrimary}>
+          <button type="button" onClick={onRead} disabled={items.length === 0} className={`${buttonPrimary} shrink-0`}>
             <FileText size={20} />
             {items.length === 0
               ? "Read reports with Gemma 4"
