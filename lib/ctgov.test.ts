@@ -1,6 +1,28 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { broaderSearchTerm, filterByAgeAndSex, orderForChecking, parseAgeYears, toTrial, type CtgovStudy } from "./ctgov.ts";
+import {
+  broaderSearchTerm,
+  filterByAgeAndSex,
+  getTrial,
+  orderForChecking,
+  parseAgeYears,
+  toTrial,
+  type CtgovStudy,
+} from "./ctgov.ts";
+
+test("a malformed trial ID is refused without asking the registry", async () => {
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = () => {
+    throw new Error("fetch should not be called");
+  };
+  try {
+    for (const id of ["", "NCT123", "nct01234567", "NCT01234567/../x", "NCT012345678", "../studies"]) {
+      assert.equal(await getTrial(id), null);
+    }
+  } finally {
+    globalThis.fetch = realFetch;
+  }
+});
 import type { Trial } from "./types.ts";
 
 const trial = (nctId: string, overrides: Partial<Trial> = {}): Trial => ({

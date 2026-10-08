@@ -1,37 +1,36 @@
-import { UPLOAD_LIMITS, type ExtractRequest, type ExtractResponse } from "@/lib/api";
+import { UPLOAD_LIMITS, type ExtractResponse } from "@/lib/api";
 import { generateJson } from "@/lib/gemma";
 import { errorResponse, gemmaErrorResponse } from "@/lib/http";
 import { checkDocuments } from "@/lib/documents";
 import { EXTRACT_PROMPT, extractReplySchema } from "@/lib/prompts";
+import { extractRequestSchema, readBody } from "@/lib/requests";
 
 // Reading a full report is the heaviest call; on Vercel it can take close to a minute.
 export const maxDuration = 120;
 const GEMMA_BUDGET_MS = 110_000;
-
-const IMAGE_TYPES = /^image\/(png|jpe?g|webp)$/;
+// The image budget plus room for the JSON around it; larger bodies are refused before parsing.
+const MAX_BODY_BYTES = 4_600_000;
+const TOO_LARGE = "The images are too large. Try fewer or smaller photos.";
 
 export async function POST(request: Request) {
-  let body: Partial<ExtractRequest>;
-  try {
-    body = (await request.json()) ?? {};
-  } catch {
-    return errorResponse("Send the report images as JSON.", 400);
-  }
+  const declaredLength = Number(request.headers.get("content-length"));
+  if (declaredLength > MAX_BODY_BYTES) return errorResponse(TOO_LARGE, 413);
 
-  const images = Array.isArray(body.images) ? body.images : [];
-  if (!images.length) return errorResponse("Add at least one report image.", 400);
-  if (images.length > UPLOAD_LIMITS.maxImages) {
-    return errorResponse(`Upload at most ${UPLOAD_LIMITS.maxImages} images.`, 400);
-  }
-  if (!images.every((img) => typeof img?.data === "string" && IMAGE_TYPES.test(img?.mimeType ?? ""))) {
-    return errorResponse("Reports must be JPG, PNG or WebP images.", 400);
-  }
+  const parsed = await readBody(request, extractRequestSchema, "Send the report images as JSON.");
+  if (!parsed.ok) return parsed.response;
+  const { images } = parsed.data;
   if (images.reduce((total, img) => total + img.data.length, 0) > UPLOAD_LIMITS.maxTotalBase64Chars) {
-    return errorResponse("The images are too large. Try fewer or smaller photos.", 413);
+    return errorResponse(TOO_LARGE, 413);
   }
 
   try {
-    const { documents, ...profile } = await generateJson(EXTRACT_PROMPT, extractReplySchema, images, GEMMA_BUDGET_MS);
+    const { documents, ...profile } = await generateJson(
+      EXTRACT_PROMPT,
+      extractReplySchema,
+      images,
+      GEMMA_BUDGET_MS,
+      request.signal,
+    );
     const check = checkDocuments(documents, images.length);
     if (!check.ok) return errorResponse(check.message, 422);
     return Response.json({ profile, documents } satisfies ExtractResponse);

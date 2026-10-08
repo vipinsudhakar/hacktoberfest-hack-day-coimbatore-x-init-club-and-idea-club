@@ -87,8 +87,11 @@ export function toTrial(study: CtgovStudy): Trial {
   };
 }
 
-/** Every recruiting trial with an Indian site that is recruiting or about to open, matching the search term. */
-export async function searchTrials(searchTerm: string): Promise<Trial[]> {
+/**
+ * Every recruiting trial with an Indian site that is recruiting or about to open, matching the search term.
+ * `signal` covers every page; without one each page gets its own 20 s timeout.
+ */
+export async function searchTrials(searchTerm: string, signal?: AbortSignal): Promise<Trial[]> {
   const trials: Trial[] = [];
   let pageToken: string | undefined;
   for (let page = 0; page < 3; page++) {
@@ -102,18 +105,76 @@ export async function searchTrials(searchTerm: string): Promise<Trial[]> {
     if (pageToken) params.set("pageToken", pageToken);
     const response = await fetch(`${API}?${params}`, {
       headers: { accept: "application/json" },
-      signal: AbortSignal.timeout(20_000),
+      signal: signal ?? AbortSignal.timeout(20_000),
     });
     if (!response.ok) throw new Error(`ClinicalTrials.gov returned ${response.status}`);
     const data = (await response.json()) as { studies?: CtgovStudy[]; nextPageToken?: string };
-    trials.push(...(data.studies ?? []).map(toTrial));
+    const found = (data.studies ?? []).map(toTrial);
+    found.forEach(rememberTrial);
+    trials.push(...found);
     pageToken = data.nextPageToken;
     if (!pageToken) break;
   }
   return trials.filter((t) => t.indiaSites.length > 0 && t.eligibilityText.trim());
 }
 
-const BLOOD_CANCERS = ["leukemia", "lymphoma", "myeloma"];
+const NCT_ID = /^NCT\d{8}$/;
+const TRIAL_CACHE_MS = 60 * 60 * 1000;
+const TRIAL_CACHE_SIZE = 2_000;
+const LOOKUP_TIMEOUT_MS = 8_000;
+const trialCache = new Map<string, { trial: Trial; expires: number }>();
+
+/** True for a well-formed ClinicalTrials.gov ID such as "NCT01234567". */
+export function isNctId(id: unknown): id is string {
+  return typeof id === "string" && NCT_ID.test(id);
+}
+
+function rememberTrial(trial: Trial) {
+  trialCache.delete(trial.nctId);
+  trialCache.set(trial.nctId, { trial, expires: Date.now() + TRIAL_CACHE_MS });
+  const oldest = trialCache.keys().next().value;
+  if (trialCache.size > TRIAL_CACHE_SIZE && oldest) trialCache.delete(oldest);
+}
+
+/**
+ * The registry's own copy of one trial, so a check never relies on trial text sent by the browser.
+ * Looks in recent search results, then the saved snapshot, then asks ClinicalTrials.gov.
+ * Null for a malformed ID, an unknown trial, or a registry that can't be reached.
+ */
+export async function getTrial(nctId: string, signal?: AbortSignal): Promise<Trial | null> {
+  if (!isNctId(nctId)) return null;
+  const cached = trialCache.get(nctId);
+  if (cached && cached.expires > Date.now()) return cached.trial;
+
+  try {
+    const { snapshotTrial } = await import("./snapshot.ts");
+    const saved = await snapshotTrial(nctId);
+    if (saved) return saved;
+  } catch (err) {
+    console.error("saved copy of the registry unavailable:", err);
+  }
+
+  const timeout = AbortSignal.timeout(LOOKUP_TIMEOUT_MS);
+  try {
+    const response = await fetch(`${API}/${nctId}?${new URLSearchParams({ fields: FIELDS })}`, {
+      headers: { accept: "application/json" },
+      signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+    });
+    if (!response.ok) {
+      if (response.status !== 404) console.error(`ClinicalTrials.gov returned ${response.status} for ${nctId}`);
+      return null;
+    }
+    const trial = toTrial((await response.json()) as CtgovStudy);
+    if (trial.nctId !== nctId) return null;
+    rememberTrial(trial);
+    return trial;
+  } catch (err) {
+    console.error(`looking up ${nctId} failed:`, err);
+    return null;
+  }
+}
+
+const BLOOD_CANCERS =["leukemia", "lymphoma", "myeloma"];
 const ORGANS = [
   "head and neck", "breast", "lung", "cervical", "ovarian", "endometrial", "uterine", "prostate", "colorectal",
   "colon", "rectal", "gastric", "stomach", "esophageal", "liver", "pancreatic", "oral", "thyroid", "bladder",
