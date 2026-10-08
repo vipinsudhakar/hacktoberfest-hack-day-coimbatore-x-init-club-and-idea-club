@@ -42,6 +42,7 @@ export interface TrialsResponse {
   searchTerm: string;
   totalFound: number; // before the age/sex filter
   source: "live" | "snapshot"; // snapshot = saved copy used when ClinicalTrials.gov is unreachable
+  snapshotSavedAt?: string; // ISO date of the saved copy, set when source is "snapshot"
 }
 
 /** POST /api/evaluate – Gemma 4 checks one trial's rules against the profile. */
