@@ -58,10 +58,23 @@ export function decideMatch(
   });
 
   // Rules only the trial team can confirm (consent, contraception, screening tests) never decide the status.
-  const blockers = results.filter((r) => r.verdict === "fail" && !r.siteCheck);
+  const fails = results.filter((r) => r.verdict === "fail" && !r.siteCheck);
+  // A rule failed only because of a current medicine is an open point for the doctor, not a verdict:
+  // a medicine can sometimes be switched or finished, and a patient must never stop one on their own.
+  const blockers = fails.filter((r) => !r.medicine);
+  const medicineFails = fails.filter((r) => r.medicine);
   const unknowns = results.filter((r) => r.verdict === "unknown" && !r.siteCheck);
-  const status: MatchStatus = blockers.length ? "not_eligible" : unknowns.length ? "possible" : "likely";
-  const questions = [...new Set(unknowns.map((r) => r.question?.trim()).filter((q): q is string => !!q))];
+  const status: MatchStatus = blockers.length
+    ? "not_eligible"
+    : unknowns.length || medicineFails.length
+      ? "possible"
+      : "likely";
+  const questions = [
+    ...new Set([
+      ...medicineFails.map((r) => `Could ${r.medicine} be changed or finished before screening for this trial?`),
+      ...unknowns.map((r) => r.question?.trim()).filter((q): q is string => !!q),
+    ]),
+  ];
 
   return { nctId, status, plainSummary, results, blockers, questions };
 }

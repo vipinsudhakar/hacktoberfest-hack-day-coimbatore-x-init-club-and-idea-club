@@ -1,6 +1,7 @@
 import { GoogleGenAI, ThinkingLevel, createPartFromBase64, type Part } from "@google/genai";
 import type { z } from "zod";
 import type { ImageUpload } from "./api";
+import { suggestedRetrySeconds } from "./http";
 
 // Gemma 4 is an open-weight model (Apache 2.0); here it is served through the Gemini API.
 export const GEMMA_MODEL = process.env.GEMMA_MODEL || "gemma-4-26b-a4b-it";
@@ -11,15 +12,14 @@ const DEFAULT_BUDGET_MS = 55_000; // for routes with maxDuration = 60
 const MIN_CALL_MS = 5_000;
 
 let clients: GoogleGenAI[] | undefined;
-let nextClient = 0;
-// Keys the API rejected (deleted or revoked); skipped while at least one other key still works.
+// Keys the API rejected (deleted or revoked); the next listed key takes over.
 const rejected = new Set<GoogleGenAI>();
 // Flipped off if the API rejects JSON mode for Gemma; prompts already ask for JSON either way.
 let jsonModeSupported = true;
 
 function getClients(): GoogleGenAI[] {
   if (!clients) {
-    // One key, or several separated by commas: calls rotate across them to spread free-tier limits.
+    // One key, or several separated by commas as backups in case a key is deleted or revoked.
     const keys = (process.env.GEMINI_API_KEY ?? "").split(",").map((k) => k.trim()).filter(Boolean);
     if (!keys.length) {
       throw new Error("GEMINI_API_KEY is not set. Copy .env.example to .env.local and add your key.");
@@ -29,11 +29,10 @@ function getClients(): GoogleGenAI[] {
   return clients;
 }
 
+/** The first key the API hasn't rejected; later keys are only backups for a deleted or revoked key. */
 function pickClient(): GoogleGenAI {
   const all = getClients();
-  const usable = all.filter((c) => !rejected.has(c));
-  const pool = usable.length ? usable : all;
-  return pool[nextClient++ % pool.length];
+  return all.find((c) => !rejected.has(c)) ?? all[0];
 }
 
 /** Pulls the JSON value out of a reply that may be wrapped in a code fence or extra text. */
@@ -49,9 +48,8 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /** How long to wait before retrying: the delay a 429 asks for, or a short backoff. */
 function retryWaitMs(message: string, attempt: number): number {
-  if (getClients().length > 1) return 500; // the next call goes to a different key
-  const asked = message.match(/retryDelay"?:\s*"(\d+(?:\.\d+)?)s"/);
-  return asked ? Number(asked[1]) * 1000 + 500 : 2000 * (attempt + 1);
+  const asked = suggestedRetrySeconds(message);
+  return asked != null ? asked * 1000 + 500 : 2000 * (attempt + 1);
 }
 
 async function callGemma(parts: Part[], deadline: number): Promise<string> {

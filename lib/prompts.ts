@@ -142,7 +142,7 @@ For every rule, set "holds":
 
 Other fields:
 - siteCheck: true only for rules the trial team checks at enrolment that don't depend on medical history: informed consent, willingness or ability to comply, contraception and pregnancy tests, investigator judgement, life expectancy, central lab confirmation, tests done during screening. Otherwise false.
-- reason: one short plain-English sentence a patient can understand.
+- reason: one short plain-English sentence a patient can understand. Never tell the patient to stop, start or change a medicine; leave that to their doctor.
 - evidence: the profile value you relied on (e.g. "ECOG 1"), or null.
 - question: only when holds is "unknown" and siteCheck is false, a short question the patient can ask their doctor (e.g. "What is my ECOG performance status?"). Otherwise null.
 - medicine: when the rule is about one of the patient's current medications, that medicine's generic name; otherwise null.

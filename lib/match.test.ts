@@ -64,3 +64,18 @@ test("medicine tags are kept only for current medications, by generic name", () 
   assert.equal(linkMedicine("letrozole", meds), null);
   assert.equal(linkMedicine(null, meds), null);
 });
+
+test("a rule failed only because of a current medicine is a question for the doctor, not a verdict", () => {
+  const m = decideMatch("NCT1", "s", rules, [
+    assess(1, "yes"),
+    assess(2, "yes"),
+    assess(3, "yes", { medicine: "clarithromycin" }),
+    assess(4, "yes"),
+  ]);
+  assert.equal(m.status, "possible");
+  assert.deepEqual(m.blockers, []);
+  assert.deepEqual(m.questions, ["Could clarithromycin be changed or finished before screening for this trial?"]);
+  const other = decideMatch("NCT1", "s", rules, [assess(1, "no"), assess(2, "yes"), assess(3, "yes", { medicine: "clarithromycin" }), assess(4, "yes")]);
+  assert.equal(other.status, "not_eligible");
+  assert.deepEqual(other.blockers.map((b) => b.id), [1]);
+});

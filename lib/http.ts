@@ -11,10 +11,15 @@ export function describeError(err: unknown): string {
   return err instanceof Error ? err.message : String(err);
 }
 
-/** Seconds Gemma asked us to wait (from the error's retryDelay), capped at a minute; 20 if it didn't say. */
-export function retryAfterSeconds(message: string): number {
+/** The wait Gemma's rate-limit error asks for (its retryDelay), in seconds, or null if it doesn't say. */
+export function suggestedRetrySeconds(message: string): number | null {
   const asked = message.match(/retryDelay"?:\s*"(\d+(?:\.\d+)?)s"/);
-  return Math.min(60, Math.ceil(asked ? Number(asked[1]) : 20));
+  return asked ? Number(asked[1]) : null;
+}
+
+/** Seconds the client should wait before retrying: Gemma's suggestion capped at a minute, else 20. */
+export function retryAfterSeconds(message: string): number {
+  return Math.min(60, Math.ceil(suggestedRetrySeconds(message) ?? 20));
 }
 
 /** Gemma's error as a response: 429 with retryAfterSeconds for rate limits, so the UI can retry by itself. */
