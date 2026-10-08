@@ -39,6 +39,7 @@ TrialBridge turns a patient's reports into a short list of trials worth asking t
 ### Key Features
 
 - **Reads real reports:** photos or screenshots of medical documents, read by an open-weight multimodal model.
+- **Checks the photos first:** in the same Gemma call, every photo is classified. Photos that aren't medical documents (selfies, chats, recipes) are left out with a plain note, and an upload with no medical document at all is refused kindly instead of producing a made-up profile.
 - **Human check before matching:** an editable profile with "what Gemma read" evidence quotes.
 - **Live registry data:** recruiting trials with an open (or about-to-open) site in India, from the ClinicalTrials.gov API, with a saved copy as a fallback when the registry can't be reached.
 - **Rule-by-rule explanations:** a ✓ / ✗ / ? checklist for every rule, a plain-language reason for each, and the profile value it relied on.
@@ -97,7 +98,7 @@ If a category or technology is not implemented in the project, specify `N/A` ins
 
 ### How It Works
 
-- **`app/api/extract`** sends the report and prescription images and an extraction prompt to Gemma 4 and returns a `PatientProfile`, including current medicines with their generic names, doses and end dates. Medicines marked as stopped are left out. The prompt tells the model to copy values as written, use null for anything not stated, and quote its evidence.
+- **`app/api/extract`** sends the report and prescription images and an extraction prompt to Gemma 4 and returns a `PatientProfile`, including current medicines with their generic names, doses and end dates. Medicines marked as stopped are left out. The same reply classifies each photo; `lib/documents.ts` refuses an upload with no medical document (`422`) and reports any photos that were skipped. The prompt tells the model to copy values as written, use null for anything not stated, and quote its evidence.
 - **`app/api/trials`** searches ClinicalTrials.gov for recruiting trials and keeps only those with an Indian site that is recruiting or about to open (`lib/ctgov.ts`). It widens the search term if a very specific one finds nothing (e.g. "invasive ductal carcinoma of breast" becomes "breast cancer"), filters by age and sex, and puts trials for the patient's stage first. When there are 6 or more candidates, a quick Gemma screen (`screenPrompt`, `lib/screen.ts`) sets aside clear mismatches with a reason; if the screen fails, every trial is checked. If the registry can't be reached, it answers from `data/ctgov-snapshot.json` (refresh with `npm run snapshot`).
 - **`lib/criteria.ts`** splits each trial's loosely formatted eligibility text into individual inclusion and exclusion rules. It handles nested sub-rules, numbered lists, escaped characters and "other criteria may apply" notes.
 - **`app/api/evaluate`** checks one trial: Gemma 4 receives the profile and the numbered rules (in parallel batches of 20 for long lists) and answers, for each rule, whether it holds for the patient (`yes` / `no` / `unknown`), plus a reason, evidence and a question for unknowns. **`lib/match.ts`** turns that into pass / fail / unknown per rule and a trial status.

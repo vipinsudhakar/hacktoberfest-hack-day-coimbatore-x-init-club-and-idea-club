@@ -2,10 +2,11 @@
 
 import { ViewTransition, addTransitionType, startTransition, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import { UPLOAD_LIMITS } from "@/lib/api";
+import { UPLOAD_LIMITS, type DocumentCheck } from "@/lib/api";
 import { RequestError, errorMessage, evaluateTrial, extractProfile, findTrials, isAbortError, retryAfter } from "@/lib/client/api";
 import { isAcceptedImage, prepareImages } from "@/lib/client/images";
 import { createLimiter, runWithConcurrency } from "@/lib/client/pool";
+import { describePhoto } from "@/lib/documents";
 import { cleanProfile, emptyProfile, normalizeProfile } from "@/lib/client/profile";
 import type { Evaluation, TrialRow } from "@/lib/client/results";
 import type { PatientProfile, Trial } from "@/lib/types";
@@ -16,10 +17,10 @@ import { DoctorSummary } from "./results/DoctorSummary";
 import { ResultsView, type SearchState } from "./results/ResultsView";
 import { StepIndicator } from "./StepIndicator";
 import { UploadStep, type Sample, type UploadItem } from "./UploadStep";
-import { textLink } from "./ui";
+import { panel, textLink } from "./ui";
 
 type Step = "start" | "reading" | "review" | "results";
-type Problem = { title: string; message: string; retry: () => void };
+type Problem = { title: string; message: string; retry?: () => void };
 
 /** Gemma's free tier is shared and rate limited: three trials at a time keeps it steady. */
 const EVALUATE_CONCURRENCY = 3;
@@ -56,6 +57,8 @@ export function TrialBridgeApp() {
   const [uploads, setUploads] = useState<UploadItem[]>([]);
   const [notice, setNotice] = useState<string | null>(null);
   const [problem, setProblem] = useState<Problem | null>(null);
+  // Photos Gemma judged not to be medical documents; they were left out of the profile.
+  const [skippedPhotos, setSkippedPhotos] = useState<DocumentCheck[]>([]);
   const [loadingSample, setLoadingSample] = useState<Sample["id"] | null>(null);
   const [reading, setReading] = useState({ count: 0, phase: "preparing" as "preparing" | "reading", previews: [] as string[] });
   const [profile, setProfile] = useState<PatientProfile>(emptyProfile);
@@ -152,17 +155,24 @@ export function TrialBridgeApp() {
       const res = await extractProfile(images, controller.signal);
       if (controller.signal.aborted) return;
       setProfile(normalizeProfile(res.profile));
+      setSkippedPhotos((res.documents ?? []).filter((d) => !d.isMedical));
       setFromReports(true);
       go("review");
     } catch (error) {
       if (isAbortError(error) || controller.signal.aborted) return;
       const busy = error instanceof RequestError && error.status === 429;
+      const notMedical = error instanceof RequestError && error.status === 422;
       setProblem({
-        title: busy ? "Gemma is busy right now" : "We couldn't read the reports",
+        title: busy
+          ? "Gemma is busy right now"
+          : notMedical
+            ? "These don't look like medical reports"
+            : "We couldn't read the reports",
         message: busy
           ? "Gemma's free service is answering a lot of people at once. Wait a minute, then try again. Your photos are still here."
           : errorMessage(error),
-        retry: () => void readReports(blobs, previews),
+        // Reading the same non-medical photos again won't help; the user swaps them instead.
+        retry: notMedical ? undefined : () => void readReports(blobs, previews),
       });
       go("start");
     }
@@ -350,6 +360,14 @@ export function TrialBridgeApp() {
           <ReadingStep count={reading.count} phase={reading.phase} previews={reading.previews} onCancel={cancelReading} />
         )}
 
+        {step === "review" && fromReports && skippedPhotos.length > 0 && (
+          <p role="status" className={`${panel} mb-8 px-4 py-3 text-sm text-ink-2`}>
+            {skippedPhotos
+              .map((d) => `We didn't use photo ${d.page}: it looks like ${describePhoto(d.note)}.`)
+              .join(" ")}{" "}
+            Everything below comes from the other photos.
+          </p>
+        )}
         {step === "review" && (
           <ProfileEditor
             profile={profile}

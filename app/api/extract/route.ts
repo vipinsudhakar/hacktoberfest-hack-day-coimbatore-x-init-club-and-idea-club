@@ -1,7 +1,8 @@
 import { UPLOAD_LIMITS, type ExtractRequest, type ExtractResponse } from "@/lib/api";
 import { generateJson } from "@/lib/gemma";
 import { errorResponse, gemmaErrorResponse } from "@/lib/http";
-import { EXTRACT_PROMPT, profileSchema } from "@/lib/prompts";
+import { checkDocuments } from "@/lib/documents";
+import { EXTRACT_PROMPT, extractReplySchema } from "@/lib/prompts";
 
 // Reading a full report is the heaviest call; on Vercel it can take close to a minute.
 export const maxDuration = 120;
@@ -30,8 +31,10 @@ export async function POST(request: Request) {
   }
 
   try {
-    const profile = await generateJson(EXTRACT_PROMPT, profileSchema, images, GEMMA_BUDGET_MS);
-    return Response.json({ profile } satisfies ExtractResponse);
+    const { documents, ...profile } = await generateJson(EXTRACT_PROMPT, extractReplySchema, images, GEMMA_BUDGET_MS);
+    const check = checkDocuments(documents, images.length);
+    if (!check.ok) return errorResponse(check.message, 422);
+    return Response.json({ profile, documents } satisfies ExtractResponse);
   } catch (err) {
     console.error("extract failed:", err);
     return gemmaErrorResponse(err, "try again, or use clearer photos of the reports");

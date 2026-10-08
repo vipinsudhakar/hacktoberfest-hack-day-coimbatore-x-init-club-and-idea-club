@@ -13,8 +13,17 @@ export interface ImageUpload {
 export interface ExtractRequest {
   images: ImageUpload[];
 }
+/** What Gemma thinks one uploaded photo is; non-medical photos are left out of the profile. */
+export interface DocumentCheck {
+  page: number; // 1-based, in upload order
+  isMedical: boolean;
+  kind: string; // e.g. "pathology report", "prescription", "not a medical document"
+  note: string; // what the photo shows, in plain words
+}
+
 export interface ExtractResponse {
   profile: PatientProfile;
+  documents: DocumentCheck[];
 }
 
 /** POST /api/trials – recruiting trials in India for the profile's cancer, filtered by age and sex. */
