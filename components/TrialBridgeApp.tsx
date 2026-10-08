@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { UPLOAD_LIMITS } from "@/lib/api";
-import { errorMessage, evaluateTrial, extractProfile, findTrials, isAbortError, retryAfter } from "@/lib/client/api";
+import { RequestError, errorMessage, evaluateTrial, extractProfile, findTrials, isAbortError, retryAfter } from "@/lib/client/api";
 import { isAcceptedImage, prepareImages } from "@/lib/client/images";
 import { runWithConcurrency } from "@/lib/client/pool";
 import { cleanProfile, emptyProfile, normalizeProfile } from "@/lib/client/profile";
@@ -189,7 +189,9 @@ export function TrialBridgeApp() {
         return;
       } catch (error) {
         if (signal.aborted) return;
-        const seconds = retryAfter(error);
+        // A server-side failure (usually Gemma answering too slowly) gets one quiet retry; rate limits get up to three.
+        const transient = attempt === 0 && error instanceof RequestError && (error.status === 502 || error.status === 504);
+        const seconds = retryAfter(error) ?? (transient ? 5 : null);
         if (seconds !== null && attempt < MAX_AUTO_RETRIES) {
           const waitSeconds = Math.max(3, Math.ceil(seconds));
           setEvaluation(trial.nctId, {
