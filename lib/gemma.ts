@@ -12,6 +12,8 @@ const MIN_CALL_MS = 5_000;
 
 let clients: GoogleGenAI[] | undefined;
 let nextClient = 0;
+// Keys the API rejected (deleted or revoked); skipped while at least one other key still works.
+const rejected = new Set<GoogleGenAI>();
 // Flipped off if the API rejects JSON mode for Gemma; prompts already ask for JSON either way.
 let jsonModeSupported = true;
 
@@ -29,7 +31,9 @@ function getClients(): GoogleGenAI[] {
 
 function pickClient(): GoogleGenAI {
   const all = getClients();
-  return all[nextClient++ % all.length];
+  const usable = all.filter((c) => !rejected.has(c));
+  const pool = usable.length ? usable : all;
+  return pool[nextClient++ % pool.length];
 }
 
 /** Pulls the JSON value out of a reply that may be wrapped in a code fence or extra text. */
@@ -54,8 +58,9 @@ async function callGemma(parts: Part[], deadline: number): Promise<string> {
   for (let attempt = 0; ; attempt++) {
     const remaining = deadline - Date.now();
     if (remaining < MIN_CALL_MS) throw new Error("Gemma request timed out: no time left in this request.");
+    const client = pickClient();
     try {
-      const response = await pickClient().models.generateContent({
+      const response = await client.models.generateContent({
         model: GEMMA_MODEL,
         contents: [{ role: "user", parts }],
         config: {
@@ -73,6 +78,10 @@ async function callGemma(parts: Part[], deadline: number): Promise<string> {
       if (jsonModeSupported && /json mode|response_?mime_?type/i.test(message)) {
         jsonModeSupported = false;
         continue;
+      }
+      if (/\b(401|403)\b|api key not valid|permission.?denied|unauthenticated/i.test(message)) {
+        rejected.add(client);
+        if (getClients().some((c) => !rejected.has(c))) continue; // try another key straight away
       }
       const retryable = /\b(429|500|502|503|504)\b|overloaded|unavailable|resource.?exhausted/i.test(message);
       const wait = retryWaitMs(message, attempt);
