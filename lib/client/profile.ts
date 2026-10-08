@@ -37,7 +37,34 @@ export function normalizeProfile(input: Partial<PatientProfile> | null | undefin
   };
 }
 
-export const TREATMENT_TYPES: { value: Treatment["type"]; label: string }[] = [
+const trimOrNull = (value: string | null) => (value?.trim() ? value.trim() : null);
+const cleanList = (values: string[]) => values.map((v) => v.trim()).filter(Boolean);
+
+/** Trims text and drops half-filled rows before the profile is sent for matching. */
+export function cleanProfile(p: PatientProfile): PatientProfile {
+  return {
+    ...p,
+    age: p.age !== null && Number.isFinite(p.age) ? p.age : null,
+    city: trimOrNull(p.city),
+    cancerType: trimOrNull(p.cancerType),
+    histology: trimOrNull(p.histology),
+    stage: trimOrNull(p.stage),
+    metastasisSites: cleanList(p.metastasisSites),
+    biomarkers: p.biomarkers
+      .map((b) => ({ name: b.name.trim(), result: b.result.trim() }))
+      .filter((b) => b.name),
+    treatments: p.treatments
+      .map((t) => ({ ...t, name: t.name.trim(), details: trimOrNull(t.details), outcome: trimOrNull(t.outcome) }))
+      .filter((t) => t.name),
+    labs: p.labs
+      .map((l) => ({ name: l.name.trim(), value: l.value.trim(), unit: trimOrNull(l.unit) }))
+      .filter((l) => l.name && l.value),
+    comorbidities: cleanList(p.comorbidities),
+    otherFindings: cleanList(p.otherFindings),
+  };
+}
+
+export const TREATMENT_TYPES:{ value: Treatment["type"]; label: string }[] = [
   { value: "surgery", label: "Surgery" },
   { value: "chemotherapy", label: "Chemotherapy" },
   { value: "radiation", label: "Radiation" },
