@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import { UPLOAD_LIMITS } from "@/lib/api";
-import { errorMessage, evaluateTrial, extractProfile, findTrials, isAbortError } from "@/lib/client/api";
+import { errorMessage, evaluateTrial, extractProfile, findTrials, isAbortError, retryAfter } from "@/lib/client/api";
 import { isAcceptedImage, prepareImages } from "@/lib/client/images";
 import { runWithConcurrency } from "@/lib/client/pool";
 import { cleanProfile, emptyProfile, normalizeProfile } from "@/lib/client/profile";
@@ -16,12 +16,30 @@ import { DoctorSummary } from "./results/DoctorSummary";
 import { ResultsView, type SearchState } from "./results/ResultsView";
 import { StepIndicator } from "./StepIndicator";
 import { UploadStep, type Sample, type UploadItem } from "./UploadStep";
+import { textLink } from "./ui";
 
 type Step = "start" | "reading" | "review" | "results";
 type Problem = { title: string; message: string; retry: () => void };
 
-const EVALUATE_CONCURRENCY = 6;
+/** Gemma's free tier is shared and rate limited: three trials at a time keeps it steady. */
+const EVALUATE_CONCURRENCY = 3;
+/** Automatic retries after a rate-limit answer, before falling back to a manual Retry button. */
+const MAX_AUTO_RETRIES = 3;
 const STEP_NUMBER = { start: 0, reading: 0, review: 1, results: 2 } as const;
+
+/** Resolves after `ms`, or early when the run is cancelled. */
+function wait(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    if (signal.aborted) return resolve();
+    const timer = setTimeout(done, ms);
+    function done() {
+      clearTimeout(timer);
+      signal.removeEventListener("abort", done);
+      resolve();
+    }
+    signal.addEventListener("abort", done);
+  });
+}
 
 export function TrialBridgeApp() {
   const [step, setStep] = useState<Step>("start");
@@ -68,7 +86,7 @@ export function TrialBridgeApp() {
     if (accepted.length < files.length) {
       messages.push("Only JPG, PNG or WebP photos can be read. For a PDF, take a screenshot of each page.");
     }
-    if (taken.length < accepted.length) messages.push(`You can add up to ${UPLOAD_LIMITS.maxImages} pages at a time.`);
+    if (taken.length < accepted.length) messages.push(`You can add up to ${UPLOAD_LIMITS.maxImages} photos at a time.`);
     setNotice(messages.join(" ") || null);
     const items = taken.map((file) => ({
       id: nextId.current++,
@@ -119,26 +137,31 @@ export function TrialBridgeApp() {
     setStep("start");
   }
 
+  /** Loads whichever of the sample's pages exist (report, prescription); a missing page is skipped. */
   async function loadSample(sample: Sample) {
     setProblem(null);
     setLoadingSample(sample.id);
     try {
-      const res = await fetch(sample.path);
-      if (!res.ok) {
-        throw new Error(
-          res.status === 404
-            ? "This sample patient isn't available yet. Upload a report or enter the details manually instead."
-            : `The sample couldn't be loaded (error ${res.status}).`,
-        );
+      const pages = await Promise.all(
+        sample.paths.map(async (path) => {
+          try {
+            const res = await fetch(path);
+            return res.ok ? await res.blob() : null;
+          } catch {
+            return null;
+          }
+        }),
+      );
+      const blobs = pages.filter((b): b is Blob => b !== null && b.type.startsWith("image/"));
+      if (blobs.length === 0) {
+        setProblem({
+          title: "This sample patient isn't available",
+          message: "The sample reports couldn't be loaded. Add your own photos, or enter the details by hand.",
+          retry: () => void loadSample(sample),
+        });
+        return;
       }
-      const blob = await res.blob();
-      void readReports([blob], [URL.createObjectURL(blob)]);
-    } catch (error) {
-      setProblem({
-        title: "Sample patient not available",
-        message: error instanceof TypeError ? "We couldn't load the sample. Check your connection." : errorMessage(error),
-        retry: () => void loadSample(sample),
-      });
+      void readReports(blobs, blobs.map((b) => URL.createObjectURL(b)));
     } finally {
       setLoadingSample(null);
     }
@@ -151,15 +174,38 @@ export function TrialBridgeApp() {
     setStep("review");
   }
 
+  function setEvaluation(nctId: string, evaluation: Evaluation) {
+    setEvaluations((prev) => ({ ...prev, [nctId]: evaluation }));
+  }
+
+  /** Checks one trial; on a rate limit waits as long as Gemma asks and tries again, up to MAX_AUTO_RETRIES times. */
   async function evaluate(p: PatientProfile, trial: Trial, signal: AbortSignal) {
-    setEvaluations((prev) => ({ ...prev, [trial.nctId]: { state: "checking" } }));
-    try {
-      const { match } = await evaluateTrial(p, trial, signal);
-      if (signal.aborted) return;
-      setEvaluations((prev) => ({ ...prev, [trial.nctId]: { state: "done", match } }));
-    } catch (error) {
-      if (signal.aborted) return;
-      setEvaluations((prev) => ({ ...prev, [trial.nctId]: { state: "error", message: errorMessage(error) } }));
+    for (let attempt = 0; ; attempt++) {
+      setEvaluation(trial.nctId, { state: "checking" });
+      try {
+        const { match } = await evaluateTrial(p, trial, signal);
+        if (signal.aborted) return;
+        setEvaluation(trial.nctId, { state: "done", match });
+        return;
+      } catch (error) {
+        if (signal.aborted) return;
+        const seconds = retryAfter(error);
+        if (seconds !== null && attempt < MAX_AUTO_RETRIES) {
+          const waitSeconds = Math.max(3, Math.ceil(seconds));
+          setEvaluation(trial.nctId, {
+            state: "waiting",
+            retryAt: Date.now() + waitSeconds * 1000,
+            seconds: waitSeconds,
+            attempt: attempt + 1,
+            maxAttempts: MAX_AUTO_RETRIES,
+          });
+          await wait(waitSeconds * 1000, signal);
+          if (signal.aborted) return;
+          continue;
+        }
+        setEvaluation(trial.nctId, { state: "error", message: errorMessage(error), rateLimited: seconds !== null });
+        return;
+      }
     }
   }
 
@@ -211,15 +257,15 @@ export function TrialBridgeApp() {
 
   return (
     <>
-      <div ref={topRef} tabIndex={-1} className={`space-y-8 outline-none ${printable ? "print:hidden" : ""}`}>
+      <div ref={topRef} tabIndex={-1} className={`space-y-10 outline-none ${printable ? "print:hidden" : ""}`}>
         <StepIndicator current={STEP_NUMBER[step]} />
 
         {step === "start" && (
           <>
             {problem && (
               <ErrorNotice title={problem.title} message={problem.message} onRetry={problem.retry}>
-                <button type="button" onClick={enterManually} className="min-h-11 px-2 font-semibold text-brand-700 underline underline-offset-4">
-                  Enter details manually
+                <button type="button" onClick={enterManually} className={`${textLink} min-h-11`}>
+                  Enter details by hand
                 </button>
               </ErrorNotice>
             )}

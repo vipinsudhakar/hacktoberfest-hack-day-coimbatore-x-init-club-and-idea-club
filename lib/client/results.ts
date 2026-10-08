@@ -1,10 +1,12 @@
-import type { CriterionResult, MatchStatus, Trial, TrialMatch } from "@/lib/types";
+import type { CriterionResult, Medication, MatchStatus, Trial, TrialMatch } from "@/lib/types";
 
 export type Evaluation =
   | { state: "queued" }
   | { state: "checking" }
+  /** Gemma's free tier said "slow down": retried automatically at `retryAt` (epoch ms). */
+  | { state: "waiting"; retryAt: number; seconds: number; attempt: number; maxAttempts: number }
   | { state: "done"; match: TrialMatch }
-  | { state: "error"; message: string };
+  | { state: "error"; message: string; rateLimited: boolean };
 
 export type TrialRow = { trial: Trial; index: number; evaluation: Evaluation };
 
@@ -77,4 +79,54 @@ function canonicalCity(name: string): string {
 export function sameCity(a: string | null | undefined, b: string | null | undefined): boolean {
   if (!a || !b) return false;
   return canonicalCity(a) === canonicalCity(b);
+}
+
+/** "Tab. Clarithromycin 500 mg" -> "tab clarithromycin 500 mg". */
+const simplify = (text: string) => text.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+
+/** Index of the patient's medicine a rule names (by generic or written name), or -1. */
+export function findMedication(medications: Medication[], medicine: string): number {
+  const wanted = simplify(medicine);
+  if (!wanted) return -1;
+  return medications.findIndex((med) =>
+    [med.genericName, med.name].some((name) => {
+      const have = name ? simplify(name) : "";
+      return have.length >= 3 && (have === wanted || have.includes(wanted) || wanted.includes(have));
+    }),
+  );
+}
+
+export type MedicineNote = { trial: Trial; rule: CriterionResult };
+
+export type MedicineGroup = {
+  key: string;
+  /** The patient's medicine as entered, or null when a rule names a medicine that isn't on the list. */
+  medication: Medication | null;
+  label: string;
+  notes: MedicineNote[];
+};
+
+const VERDICT_ORDER = { fail: 0, unknown: 1, pass: 2 } as const;
+
+/** Every checked rule that concerns one of the patient's medicines, grouped by medicine (worst verdict first). */
+export function medicineGroups(medications: Medication[], rows: TrialRow[]): MedicineGroup[] {
+  const groups = new Map<string, MedicineGroup>();
+  medications.forEach((med, i) =>
+    groups.set(`med-${i}`, { key: `med-${i}`, medication: med, label: med.genericName || med.name, notes: [] }),
+  );
+  for (const row of rows) {
+    if (row.evaluation.state !== "done") continue;
+    for (const rule of row.evaluation.match.results) {
+      const medicine = rule.medicine?.trim();
+      if (!medicine) continue;
+      const index = findMedication(medications, medicine);
+      const key = index >= 0 ? `med-${index}` : `other-${simplify(medicine)}`;
+      if (!groups.has(key)) groups.set(key, { key, medication: null, label: medicine, notes: [] });
+      groups.get(key)!.notes.push({ trial: row.trial, rule });
+    }
+  }
+  for (const group of groups.values()) {
+    group.notes.sort((a, b) => VERDICT_ORDER[a.rule.verdict] - VERDICT_ORDER[b.rule.verdict] || a.trial.nctId.localeCompare(b.trial.nctId));
+  }
+  return [...groups.values()];
 }

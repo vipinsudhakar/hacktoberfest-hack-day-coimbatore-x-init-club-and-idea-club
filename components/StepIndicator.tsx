@@ -1,31 +1,30 @@
 const STEPS = ["Add reports", "Check details", "See trials"] as const;
 
+/** "Step 2 of 3" with a thin three-part bar: tells a worried reader exactly where they are. */
 export function StepIndicator({ current }: { current: 0 | 1 | 2 }) {
   return (
     <nav aria-label="Progress" className="print:hidden">
-      <ol className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+      <p className="text-sm text-ink-3">
+        <span className="font-mono tabular-nums">Step {current + 1} of 3</span>
+        <span aria-hidden="true" className="px-2 text-line-2">
+          /
+        </span>
+        <span className="font-semibold text-ink">{STEPS[current]}</span>
+      </p>
+      <ol className="mt-2.5 grid grid-cols-3 gap-1.5">
         {STEPS.map((label, i) => {
           const state = i < current ? "done" : i === current ? "current" : "todo";
           return (
-            <li key={label} className="flex items-center gap-2" aria-current={state === "current" ? "step" : undefined}>
+            <li key={label} aria-current={state === "current" ? "step" : undefined}>
               <span
-                className={`flex size-6 items-center justify-center rounded-full text-xs font-bold ${
-                  state === "current"
-                    ? "bg-brand-700 text-white"
-                    : state === "done"
-                      ? "bg-brand-100 text-brand-800"
-                      : "border border-line-strong text-ink-subtle"
-                }`}
-              >
-                {i + 1}
-              </span>
-              <span className={state === "current" ? "font-semibold text-ink" : "text-ink-subtle"}>
+                aria-hidden="true"
+                className={`block h-1 rounded-full ${state === "todo" ? "bg-stone-2" : "bg-accent"}`}
+              />
+              <span className={`mt-1.5 hidden text-xs sm:block ${state === "current" ? "text-ink" : "text-ink-3"}`}>
                 {label}
-                {state === "done" && <span className="sr-only"> (done)</span>}
               </span>
-              {i < STEPS.length - 1 && (
-                <span aria-hidden="true" className="mx-1 h-px w-6 bg-line-strong sm:w-10" />
-              )}
+              <span className="sr-only sm:hidden">{label}</span>
+              {state === "done" && <span className="sr-only"> (done)</span>}
             </li>
           );
         })}

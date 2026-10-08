@@ -4,7 +4,7 @@ import { useId, useState } from "react";
 import { Close } from "../Icons";
 import { buttonSecondary, fieldHint, fieldInput, fieldLabel } from "../ui";
 
-/** Free-text list (metastasis sites, conditions…) edited as removable chips. */
+/** Free-text list (spread sites, conditions…) edited as removable tags. */
 export function ChipListInput({
   label,
   hint,
@@ -38,18 +38,18 @@ export function ChipListInput({
         </p>
       )}
       {values.length > 0 && (
-        <ul className="mt-2 flex flex-wrap gap-2" aria-label={`${label} added`}>
+        <ul className="mt-2 flex flex-wrap gap-2" aria-label={`${label}: added`}>
           {values.map((value, i) => (
             <li
               key={`${value}-${i}`}
-              className="flex items-center gap-1 rounded-full border border-brand-100 bg-brand-50 py-1 pl-3 pr-1 text-sm text-brand-800"
+              className="flex items-center gap-0.5 rounded-sm border border-line bg-stone py-0.5 pl-2.5 pr-0.5 text-sm text-ink"
             >
               {value}
               <button
                 type="button"
                 onClick={() => onChange(values.filter((_, j) => j !== i))}
                 aria-label={`Remove ${value}`}
-                className="flex size-7 items-center justify-center rounded-full hover:bg-brand-100"
+                className="flex size-8 items-center justify-center rounded-sm text-ink-3 hover:bg-fail-soft hover:text-fail"
               >
                 <Close size={14} />
               </button>
@@ -73,7 +73,7 @@ export function ChipListInput({
           }}
           className={fieldInput}
         />
-        <button type="button" onClick={add} className={buttonSecondary}>
+        <button type="button" onClick={add} className={`${buttonSecondary} shrink-0`}>
           Add
         </button>
       </div>

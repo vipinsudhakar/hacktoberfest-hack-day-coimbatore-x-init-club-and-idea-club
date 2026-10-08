@@ -1,6 +1,6 @@
 import type { TrialsResponse } from "@/lib/api";
 import { ECOG_LABELS, TREATMENT_TYPES } from "@/lib/client/profile";
-import { openRules, rowFilterKey, sortRows, type TrialRow } from "@/lib/client/results";
+import { medicineGroups, openRules, rowFilterKey, sortRows, type TrialRow } from "@/lib/client/results";
 import type { PatientProfile } from "@/lib/types";
 import { DISCLAIMER_BODY, DISCLAIMER_LEAD } from "../Disclaimer";
 import { STATUS_META } from "./StatusBadge";
@@ -21,6 +21,14 @@ function profileRows(p: PatientProfile): [string, string][] {
     ],
     ["Biomarkers", join(p.biomarkers.map((b) => `${b.name}: ${b.result}`))],
     ["Treatments", join(p.treatments.map((t) => join([`${t.name} (${typeLabel(t.type)})`, t.details, t.outcome], ", ")))],
+    [
+      "Current medicines",
+      join(
+        p.medications.map((m) =>
+          join([m.genericName && m.genericName !== m.name ? `${m.name} (${m.genericName})` : m.name, m.dose, m.until ? `until ${m.until}` : null, m.reason], ", "),
+        ),
+      ),
+    ],
     ["ECOG", p.ecog !== null ? (ECOG_LABELS[p.ecog] ?? String(p.ecog)) : ""],
     ["Labs", join(p.labs.map((l) => join([l.name, l.value, l.unit], " ")))],
     ["Other conditions", p.comorbidities.join(", ")],
@@ -43,6 +51,9 @@ export function DoctorSummary({
 }) {
   const count = (key: string) => rows.filter((r) => rowFilterKey(r) === key).length;
   const unchecked = rows.filter((r) => r.evaluation.state !== "done").length;
+  const medicineNotes = medicineGroups(profile.medications, rows).flatMap((g) =>
+    g.notes.filter((n) => n.rule.verdict !== "pass").map((n) => ({ label: g.label, ...n })),
+  );
   const shortlist = sortRows(rows).flatMap((r) =>
     r.evaluation.state === "done" && r.evaluation.match.status !== "not_eligible"
       ? [{ trial: r.trial, match: r.evaluation.match }]
@@ -123,6 +134,24 @@ export function DoctorSummary({
           </section>
         );
       })}
+
+      {medicineNotes.length > 0 && (
+        <section className="mt-5 break-inside-avoid">
+          <h2 className="font-serif text-[13pt] font-semibold">Medicine notes</h2>
+          <p className="mt-1">
+            Trial rules about other medicines, checked against the patient&apos;s current medicines. No medicine has been
+            stopped or changed because of this summary.
+          </p>
+          <ul className="mt-1 list-disc pl-5">
+            {medicineNotes.map(({ label, trial, rule }) => (
+              <li key={`${label}-${trial.nctId}-${rule.id}`}>
+                <strong>{label}</strong> · {trial.nctId}: {rule.verdict === "fail" ? "rules the patient out while taking it" : "needs checking"}. Rule: {rule.text}
+                {rule.reason ? ` (${rule.reason})` : ""}
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <p className="mt-5 border-t border-gray-400 pt-2 text-[9pt]">
         <strong>{DISCLAIMER_LEAD}</strong> {DISCLAIMER_BODY} Trial information comes from ClinicalTrials.gov and

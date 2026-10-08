@@ -7,8 +7,10 @@ import { rowFilterKey, sortRows, type ResultFilter, type TrialRow } from "@/lib/
 import type { PatientProfile, Trial } from "@/lib/types";
 import { Disclaimer } from "../Disclaimer";
 import { ErrorNotice } from "../ErrorNotice";
-import { ArrowLeft, Info, Printer, Spinner } from "../Icons";
-import { buttonPrimary, buttonSecondary, card } from "../ui";
+import { AlertTriangle, ArrowLeft, Clock, Info, Printer, Spinner } from "../Icons";
+import { buttonPrimary, buttonSecondary, pageTitle, panel, sectionTitle } from "../ui";
+import { Countdown } from "./Countdown";
+import { MedicinesPanel } from "./MedicinesPanel";
 import { STATUS_META } from "./StatusBadge";
 import { TrialCard } from "./TrialCard";
 
@@ -17,17 +19,23 @@ export type SearchState =
   | { phase: "error"; message: string }
   | { phase: "ready"; response: TrialsResponse };
 
-function Progress({ checked, total }: { checked: number; total: number }) {
+function Progress({ rows }: { rows: TrialRow[] }) {
+  const total = rows.length;
+  const checked = rows.filter((r) => rowFilterKey(r) !== null).length;
+  const waiting = rows.filter((r) => r.evaluation.state === "waiting").length;
   const done = checked >= total;
   const pct = total === 0 ? 100 : Math.round((checked / total) * 100);
+  const trials = (n: number) => `${n} ${n === 1 ? "trial" : "trials"}`;
+
   return (
-    <div className={`${card} p-4 sm:p-5`}>
-      <div className="flex items-center gap-2" aria-live="polite">
-        {!done && <Spinner size={18} className="text-brand-600" />}
-        <p className="font-semibold">
-          {done
-            ? `Checked all ${total} ${total === 1 ? "trial" : "trials"}, rule by rule.`
-            : `Checked ${checked} of ${total} trials…`}
+    <div className="border-y border-line py-5">
+      <div className="flex items-baseline justify-between gap-4">
+        <p className="flex items-center gap-2.5 font-semibold text-ink">
+          {!done && <Spinner size={18} className="shrink-0 text-accent" />}
+          {done ? `All ${trials(total)} checked, rule by rule` : `Checking ${trials(total)}, rule by rule`}
+        </p>
+        <p className="shrink-0 font-mono text-sm tabular-nums text-ink-3" aria-hidden="true">
+          {checked}/{total}
         </p>
       </div>
       <div
@@ -36,41 +44,49 @@ function Progress({ checked, total }: { checked: number; total: number }) {
         aria-valuemin={0}
         aria-valuemax={total}
         aria-valuenow={checked}
-        className="mt-3 h-2.5 overflow-hidden rounded-full bg-brand-100"
+        className="mt-3 h-1.5 overflow-hidden rounded-full bg-stone-2"
       >
-        <div className="h-full rounded-full bg-brand-600 transition-[width] duration-500" style={{ width: `${pct}%` }} />
+        <div
+          className="h-full rounded-full bg-accent transition-[width] duration-700 ease-[var(--ease-out-expo)]"
+          style={{ width: `${pct}%` }}
+        />
       </div>
+      <p className="sr-only" aria-live="polite">
+        {done
+          ? `All ${trials(total)} checked.`
+          : `${checked} of ${trials(total)} checked.${waiting ? ` ${trials(waiting)} waiting for Gemma's free tier.` : ""}`}
+      </p>
       {!done && (
-        <p className="mt-2 text-sm text-ink-subtle">
-          Gemma 4 checks each trial against every eligibility rule. Results appear below as they finish.
+        <p className="mt-3 text-sm text-ink-3">
+          Gemma 4 checks each trial against every one of its rules. Results appear below as they finish; with many
+          trials this takes a few minutes.
+        </p>
+      )}
+      {waiting > 0 && (
+        <p className="mt-2 flex gap-2 text-sm text-ink">
+          <Clock size={18} className="mt-px shrink-0 text-ask" />
+          {trials(waiting)} waiting for Gemma&apos;s free tier, which limits how fast it can answer. They retry by
+          themselves.
         </p>
       )}
     </div>
   );
 }
 
-function FilterChips({
-  rows,
-  filter,
-  onChange,
-}: {
-  rows: TrialRow[];
-  filter: ResultFilter;
-  onChange: (f: ResultFilter) => void;
-}) {
+function Filters({ rows, filter, onChange }: { rows: TrialRow[]; filter: ResultFilter; onChange: (f: ResultFilter) => void }) {
   const count = (key: ResultFilter) => rows.filter((r) => rowFilterKey(r) === key).length;
-  const chips: { key: ResultFilter; label: string; n: number; meta?: (typeof STATUS_META)[keyof typeof STATUS_META] }[] = [
-    { key: "all", label: "All checked", n: rows.filter((r) => rowFilterKey(r) !== null).length },
-    { key: "likely", label: STATUS_META.likely.label, n: count("likely"), meta: STATUS_META.likely },
-    { key: "possible", label: STATUS_META.possible.label, n: count("possible"), meta: STATUS_META.possible },
-    { key: "not_eligible", label: STATUS_META.not_eligible.label, n: count("not_eligible"), meta: STATUS_META.not_eligible },
+  const chips: { key: ResultFilter; label: string; n: number; Icon?: typeof Clock; icon?: string }[] = [
+    { key: "all", label: "All", n: rows.filter((r) => rowFilterKey(r) !== null).length },
+    { key: "likely", label: STATUS_META.likely.label, n: count("likely"), Icon: STATUS_META.likely.Icon, icon: STATUS_META.likely.icon },
+    { key: "possible", label: STATUS_META.possible.label, n: count("possible"), Icon: STATUS_META.possible.Icon, icon: STATUS_META.possible.icon },
+    { key: "not_eligible", label: STATUS_META.not_eligible.label, n: count("not_eligible"), Icon: STATUS_META.not_eligible.Icon, icon: STATUS_META.not_eligible.icon },
   ];
   const errors = count("error");
-  if (errors > 0) chips.push({ key: "error", label: "Couldn't check", n: errors });
+  if (errors > 0 || filter === "error") chips.push({ key: "error", label: "Couldn't check", n: errors, Icon: AlertTriangle, icon: "text-ask" });
 
   return (
     <div role="group" aria-label="Show trials by result" className="flex flex-wrap gap-2">
-      {chips.map(({ key, label, n, meta }) => {
+      {chips.map(({ key, label, n, Icon, icon }) => {
         const active = filter === key;
         return (
           <button
@@ -78,21 +94,56 @@ function FilterChips({
             type="button"
             aria-pressed={active}
             onClick={() => onChange(key)}
-            className={`inline-flex min-h-11 items-center gap-2 rounded-full border px-4 text-[0.95rem] font-semibold transition-colors ${
-              active ? "border-brand-700 bg-brand-700 text-white" : "border-line-strong bg-surface text-ink hover:border-brand-600"
+            className={`inline-flex min-h-11 items-center gap-2 rounded-md border px-3.5 text-[0.9375rem] font-semibold transition-colors duration-150 ${
+              active ? "border-ink bg-ink text-white" : "border-line-2 bg-white text-ink hover:border-ink-2"
             }`}
           >
-            {meta && <meta.Icon size={18} className={active ? "text-white" : meta.icon} />}
+            {Icon && <Icon size={17} className={active ? "text-white" : icon} />}
             {label}
-            <span
-              className={`rounded-full px-2 text-sm tabular-nums ${active ? "bg-white/20" : "bg-canvas text-ink-muted"}`}
-            >
-              {n}
-            </span>
+            <span className={`font-mono text-sm tabular-nums ${active ? "text-white/80" : "text-ink-3"}`}>{n}</span>
           </button>
         );
       })}
     </div>
+  );
+}
+
+function Pending({ rows }: { rows: TrialRow[] }) {
+  return (
+    <section aria-labelledby="pending-heading" className="rounded-lg border border-dashed border-line-2 px-5 py-5 sm:px-7">
+      <h2 id="pending-heading" className="font-semibold text-ink">
+        Still to check: {rows.length} {rows.length === 1 ? "trial" : "trials"}
+      </h2>
+      <ul className="mt-3 divide-y divide-line">
+        {rows.map(({ trial, evaluation }) => (
+          <li key={trial.nctId} className="flex flex-col gap-1 py-2.5 text-sm sm:flex-row sm:items-start sm:gap-4">
+            <span className="min-w-0 flex-1 text-ink-2">
+              <span className="font-mono text-ink-3">{trial.nctId}</span> {trial.title}
+            </span>
+            <span className="flex shrink-0 items-center gap-2 text-ink-2 sm:w-56 sm:justify-end">
+              {evaluation.state === "checking" && (
+                <>
+                  <Spinner size={15} className="text-accent" /> Checking now
+                </>
+              )}
+              {evaluation.state === "queued" && <span className="text-ink-3">In line</span>}
+              {evaluation.state === "waiting" && (
+                <>
+                  <Clock size={16} className="shrink-0 text-ask" />
+                  <span>
+                    Waiting for Gemma&apos;s free tier · retry in{" "}
+                    <Countdown key={evaluation.retryAt} retryAt={evaluation.retryAt} seconds={evaluation.seconds} />
+                    <span className="block text-xs text-ink-3 sm:text-right">
+                      Try {evaluation.attempt} of {evaluation.maxAttempts}
+                    </span>
+                  </span>
+                </>
+              )}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }
 
@@ -115,34 +166,32 @@ export function ResultsView({
   const finished = sortRows(rows.filter((r) => rowFilterKey(r) !== null));
   const pending = rows.filter((r) => rowFilterKey(r) === null);
   const visible = filter === "all" ? finished : finished.filter((r) => rowFilterKey(r) === filter);
+  const anyDone = rows.some((r) => r.evaluation.state === "done");
+  const ready = search.phase === "ready" ? search.response : null;
 
   return (
-    <div className="space-y-6">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div className="max-w-2xl">
-          <h1 className="font-serif text-[1.75rem] font-semibold leading-tight sm:text-[2rem]">
-            Trials the patient may qualify for
-          </h1>
-          <p className="mt-1 text-ink-muted">{profileHeadline(profile)}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
+    <div className="space-y-10">
+      <header>
+        <h1 className={pageTitle}>Trials the patient may qualify for</h1>
+        <p className="mt-3 text-lg text-ink-2">{profileHeadline(profile)}</p>
+        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:items-center">
           <button type="button" onClick={onEditProfile} className={buttonSecondary}>
             <ArrowLeft size={18} /> Edit details
           </button>
-          {search.phase === "ready" && search.response.trials.length > 0 && (
+          {ready && ready.trials.length > 0 && (
             <button type="button" onClick={() => window.print()} className={buttonPrimary}>
-              <Printer size={20} /> Print summary for your oncologist
+              <Printer size={20} /> Print a summary for the oncologist
             </button>
           )}
         </div>
       </header>
 
       {search.phase === "searching" && (
-        <div className={`${card} flex items-center gap-3 p-5`} aria-live="polite">
-          <Spinner size={22} className="shrink-0 text-brand-600" />
-          <p>
+        <div className="flex items-center gap-3 border-y border-line py-5" aria-live="polite">
+          <Spinner size={20} className="shrink-0 text-accent" />
+          <p className="text-ink">
             Searching ClinicalTrials.gov for trials recruiting in India for{" "}
-            <strong>&ldquo;{profile.cancerType}&rdquo;</strong>…
+            <strong className="font-semibold">&ldquo;{profile.cancerType}&rdquo;</strong>…
           </p>
         </div>
       )}
@@ -155,76 +204,70 @@ export function ResultsView({
         </ErrorNotice>
       )}
 
-      {search.phase === "ready" && (
+      {ready && (
         <>
-          <div className="space-y-2">
-            <p className="text-ink-muted">
-              Searched ClinicalTrials.gov for <strong className="text-ink">&ldquo;{search.response.searchTerm}&rdquo;</strong>:{" "}
-              {search.response.totalFound} recruiting in India
-              {search.response.totalFound !== search.response.trials.length &&
-                `, ${search.response.trials.length} open to the patient's age and sex`}
+          <div className="-mt-4 space-y-2">
+            <p className="max-w-[42rem] text-ink-2">
+              Searched ClinicalTrials.gov for{" "}
+              <strong className="font-semibold text-ink">&ldquo;{ready.searchTerm}&rdquo;</strong>:{" "}
+              <span className="tabular-nums">{ready.totalFound}</span> recruiting in India
+              {ready.totalFound !== ready.trials.length &&
+                `, ${ready.trials.length} of them open to the patient's age and sex`}
               .
             </p>
-            {search.response.source === "snapshot" && (
-              <p className="flex gap-2 text-sm text-ink-subtle">
+            {ready.source === "snapshot" && (
+              <p className="flex max-w-[42rem] gap-2 text-sm text-ink-3">
                 <Info size={16} className="mt-0.5 shrink-0" />
-                ClinicalTrials.gov couldn&apos;t be reached, so a saved copy of the registry was used. Check the
-                trial pages for the latest status.
+                ClinicalTrials.gov couldn&apos;t be reached, so a saved copy of the registry was used. Check each
+                trial&apos;s page for its latest status.
               </p>
             )}
           </div>
 
-          {search.response.trials.length === 0 ? (
-            <div className={`${card} p-6`}>
-              <h2 className="font-serif text-xl font-semibold">No recruiting trials found</h2>
-              <p className="mt-2 text-ink-muted">
-                No trials recruiting in India matched &ldquo;{search.response.searchTerm}&rdquo; for this patient right
-                now. Try a broader or more common name for the cancer type, for example &ldquo;lung cancer&rdquo;
-                instead of a specific subtype.
+          {ready.trials.length === 0 ? (
+            <div className={`${panel} px-5 py-6 sm:px-7`}>
+              <h2 className={sectionTitle}>No recruiting trials found</h2>
+              <p className="mt-2 max-w-[40rem] text-ink-2">
+                No trials recruiting in India matched &ldquo;{ready.searchTerm}&rdquo; for this patient right now. Try a
+                broader or more common name for the cancer, for example &ldquo;lung cancer&rdquo; instead of a specific
+                subtype.
               </p>
-              <button type="button" onClick={onEditProfile} className={`${buttonSecondary} mt-4`}>
-                Change cancer type
+              <button type="button" onClick={onEditProfile} className={`${buttonSecondary} mt-5`}>
+                Change the cancer type
               </button>
             </div>
           ) : (
             <>
-              <Progress checked={finished.length} total={rows.length} />
-              {finished.length > 0 && <FilterChips rows={rows} filter={filter} onChange={setFilter} />}
-              {visible.length > 0 ? (
-                <ol className="space-y-4" aria-label="Checked trials">
-                  {visible.map((row) => (
-                    <li key={row.trial.nctId}>
-                      <TrialCard
-                        trial={row.trial}
-                        evaluation={row.evaluation}
-                        patientCity={profile.city}
-                        onRetry={() => onRetryTrial(row.trial)}
-                      />
-                    </li>
-                  ))}
-                </ol>
-              ) : (
-                finished.length > 0 && <p className="text-ink-muted">No trials in this group{pending.length ? " yet" : ""}.</p>
-              )}
-              {pending.length > 0 && (
-                <section aria-label="Trials still being checked" className="rounded-2xl border border-dashed border-line-strong p-4 sm:p-5">
-                  <h2 className="font-semibold">Still checking {pending.length} {pending.length === 1 ? "trial" : "trials"}</h2>
-                  <ul className="mt-2 space-y-1.5 text-sm text-ink-subtle">
-                    {pending.map((row) => (
-                      <li key={row.trial.nctId} className="flex items-start gap-2">
-                        {row.evaluation.state === "checking" ? (
-                          <Spinner size={16} className="mt-0.5 shrink-0 text-brand-600" />
-                        ) : (
-                          <span aria-hidden="true" className="mt-1.5 size-2 shrink-0 rounded-full bg-line-strong" />
-                        )}
-                        <span>
-                          <span className="font-mono">{row.trial.nctId}</span> {row.trial.title}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
+              <Progress rows={rows} />
+
+              {anyDone && <MedicinesPanel medications={profile.medications} rows={rows} onEditProfile={onEditProfile} />}
+
+              {finished.length > 0 && (
+                <section aria-labelledby="trials-heading" className="space-y-5">
+                  <h2 id="trials-heading" className={sectionTitle}>
+                    Checked trials
+                  </h2>
+                  <Filters rows={rows} filter={filter} onChange={setFilter} />
+                  {visible.length > 0 ? (
+                    <ol className="space-y-5" aria-label="Checked trials, best matches first">
+                      {visible.map((row) => (
+                        <li key={row.trial.nctId}>
+                          <TrialCard
+                            trial={row.trial}
+                            evaluation={row.evaluation}
+                            patientCity={profile.city}
+                            onRetry={() => onRetryTrial(row.trial)}
+                          />
+                        </li>
+                      ))}
+                    </ol>
+                  ) : (
+                    <p className="text-ink-2">No trials in this group{pending.length ? " yet" : ""}.</p>
+                  )}
                 </section>
               )}
+
+              {pending.length > 0 && <Pending rows={pending} />}
             </>
           )}
         </>
