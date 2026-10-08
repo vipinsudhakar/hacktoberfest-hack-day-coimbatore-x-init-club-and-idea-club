@@ -20,7 +20,7 @@ import { UploadStep, type Sample, type UploadItem } from "./UploadStep";
 type Step = "start" | "reading" | "review" | "results";
 type Problem = { title: string; message: string; retry: () => void };
 
-const EVALUATE_CONCURRENCY = 4;
+const EVALUATE_CONCURRENCY = 6;
 const STEP_NUMBER = { start: 0, reading: 0, review: 1, results: 2 } as const;
 
 export function TrialBridgeApp() {

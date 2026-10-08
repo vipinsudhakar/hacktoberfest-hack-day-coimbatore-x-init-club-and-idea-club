@@ -1,5 +1,5 @@
 import type { TrialsRequest, TrialsResponse } from "@/lib/api";
-import { broaderSearchTerm, filterByAgeAndSex, searchTrials } from "@/lib/ctgov";
+import { broaderSearchTerm, filterByAgeAndSex, orderForChecking, searchTrials } from "@/lib/ctgov";
 import { errorResponse } from "@/lib/http";
 import type { Trial } from "@/lib/types";
 import snapshotJson from "@/data/ctgov-snapshot.json";
@@ -44,7 +44,7 @@ export async function POST(request: Request) {
   }
 
   return Response.json({
-    trials: filterByAgeAndSex(trials, profile),
+    trials: orderForChecking(filterByAgeAndSex(trials, profile), profile),
     searchTerm,
     totalFound: trials.length,
     source,

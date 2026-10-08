@@ -1,0 +1,57 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { broaderSearchTerm, filterByAgeAndSex, orderForChecking, parseAgeYears } from "./ctgov.ts";
+import type { Trial } from "./types.ts";
+
+const trial = (nctId: string, overrides: Partial<Trial> = {}): Trial => ({
+  nctId,
+  title: nctId,
+  phases: [],
+  conditions: [],
+  interventions: [],
+  summary: "",
+  minAgeYears: null,
+  maxAgeYears: null,
+  sex: "ALL",
+  eligibilityText: "* rule",
+  indiaSites: [{ facility: "Hospital", city: "Chennai", state: null }],
+  contacts: [],
+  url: "",
+  ...overrides,
+});
+
+test("ages from the registry are converted to years", () => {
+  assert.equal(parseAgeYears("18 Years"), 18);
+  assert.equal(parseAgeYears("6 Months"), 0.5);
+  assert.equal(parseAgeYears("N/A"), null);
+  assert.equal(parseAgeYears(undefined), null);
+});
+
+test("age and sex limits filter trials, unknown patient values never exclude", () => {
+  const trials = [
+    trial("ADULT", { minAgeYears: 18, maxAgeYears: 65 }),
+    trial("WOMEN", { sex: "FEMALE" }),
+    trial("ELDERLY", { minAgeYears: 70 }),
+  ];
+  assert.deepEqual(filterByAgeAndSex(trials, { age: 52, sex: "male" }).map((t) => t.nctId), ["ADULT"]);
+  assert.deepEqual(filterByAgeAndSex(trials, { age: null, sex: null }).map((t) => t.nctId), ["ADULT", "WOMEN", "ELDERLY"]);
+});
+
+test("specific cancer names widen to the organ, blood cancers keep their family name", () => {
+  assert.equal(broaderSearchTerm("Invasive ductal carcinoma of the breast"), "breast cancer");
+  assert.equal(broaderSearchTerm("non-small cell lung cancer"), "lung cancer");
+  assert.equal(broaderSearchTerm("acute myeloid leukemia"), "leukemia");
+  assert.equal(broaderSearchTerm("breast cancer"), null);
+});
+
+test("metastatic patients see advanced-disease treatment trials first, early-stage trials last", () => {
+  const ordered = orderForChecking(
+    [
+      trial("EARLY", { title: "Ribociclib in Early Breast Cancer", phases: ["PHASE3"] }),
+      trial("SURVEY", { title: "Quality of life survey" }),
+      trial("METASTATIC", { title: "New drug in metastatic breast cancer", phases: ["PHASE3"] }),
+    ],
+    { metastatic: true },
+  );
+  assert.deepEqual(ordered.map((t) => t.nctId), ["METASTATIC", "SURVEY", "EARLY"]);
+});

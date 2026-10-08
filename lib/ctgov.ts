@@ -140,3 +140,23 @@ export function filterByAgeAndSex(trials: Trial[], profile: Pick<PatientProfile,
     return true;
   });
 }
+
+/**
+ * Puts the trials most likely to fit first, so strong matches show up early while checking runs.
+ * Only reorders; every trial is still checked rule by rule.
+ */
+export function orderForChecking(trials: Trial[], profile: Pick<PatientProfile, "metastatic">): Trial[] {
+  const score = (t: Trial) => {
+    const text = `${t.title} ${t.conditions.join(" ")}`.toLowerCase();
+    let s = t.phases.length ? 1 : 0; // treatment trials before observational studies
+    if (profile.metastatic === true) {
+      if (/metasta|advanced|unresectable|recurren|stage iv/.test(text)) s += 2;
+      if (/early|adjuvant|operable|mastectomy|node.?negative/.test(text)) s -= 2;
+    } else if (profile.metastatic === false) {
+      if (/early|adjuvant|operable/.test(text)) s += 2;
+      if (/metasta|advanced/.test(text)) s -= 1;
+    }
+    return s;
+  };
+  return [...trials].sort((a, b) => score(b) - score(a));
+}
