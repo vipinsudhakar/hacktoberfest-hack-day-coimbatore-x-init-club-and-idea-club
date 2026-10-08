@@ -39,6 +39,8 @@ export interface EvaluateResponse {
 
 export interface ApiError {
   error: string;
+  /** Set when Gemma's free-tier rate limit was hit: retry the same request after this many seconds. */
+  retryAfterSeconds?: number;
 }
 
 /**

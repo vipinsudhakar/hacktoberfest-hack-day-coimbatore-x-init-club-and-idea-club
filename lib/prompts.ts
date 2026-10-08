@@ -43,6 +43,7 @@ export const profileSchema = z.object({
     }),
   ),
   ecog: numberIn(0, 5),
+  medications: listOf(z.object({ name: z.string(), genericName: text, dose: text, until: text, reason: text })),
   labs: listOf(z.object({ name: z.string(), value: z.union([z.string(), z.number()]).transform(String), unit: text })),
   comorbidities: textList,
   otherFindings: textList,
@@ -59,6 +60,7 @@ Rules:
 - stage: as written, including TNM if given. metastatic: true if the documents describe metastatic or stage IV disease, false if they clearly describe non-metastatic disease, otherwise null.
 - treatments: every surgery, chemotherapy, radiation, hormonal, targeted and immunotherapy treatment. Put dates, cycles and the setting (adjuvant, first-line metastatic, ...) in details and the result in outcome (e.g. "progressed after 28 months").
 - ecog: the ECOG performance status if stated. A Karnofsky score is not ECOG: leave ecog null and add the Karnofsky score to otherFindings.
+- medications: every medicine the patient is currently taking (prescriptions, "current medications" lists), including non-cancer medicines and short courses such as antibiotics. Give the active ingredient in genericName (e.g. "clarithromycin" for "Tab. Claribid 500"), the dose and frequency, the end date or duration in until if written, and what it is for if stated. Leave out medicines the documents say were stopped.
 - labs: the most recent value of each lab test.
 - evidence: for the most important values (diagnosis, stage, each biomarker, each line of treatment, ECOG), copy the exact snippet from the document.
 - Documents may be photos taken at an angle or slightly blurred; read carefully.
@@ -76,6 +78,7 @@ Reply with only a JSON object with exactly these keys:
   "biomarkers": [{"name": string, "result": string}],
   "treatments": [{"name": string, "type": "surgery" | "chemotherapy" | "radiation" | "hormonal" | "targeted" | "immunotherapy" | "other", "details": string | null, "outcome": string | null}],
   "ecog": number | null,
+  "medications": [{"name": string, "genericName": string | null, "dose": string | null, "until": string | null, "reason": string | null}],
   "labs": [{"name": string, "value": string, "unit": string | null}],
   "comorbidities": string[],
   "otherFindings": string[],
@@ -92,6 +95,7 @@ const assessmentReply = z.object({
       reason: z.string().catch(""),
       evidence: z.string().nullable().catch(null),
       question: z.string().nullable().catch(null),
+      medicine: text,
     }),
   ),
 });
@@ -118,10 +122,10 @@ export function evaluatePrompt(profile: PatientProfile, trial: Trial, criteria: 
 TRIAL ${trial.nctId}: ${trial.title}
 Conditions: ${trial.conditions.join("; ") || "not listed"}
 Treatments being tested: ${trial.interventions.join("; ") || "not listed"}
-Summary: ${trial.summary.slice(0, 800)}
+Summary: ${trial.summary.slice(0, 500)}
 
 PATIENT PROFILE (read from their medical reports and checked by the user):
-${JSON.stringify(facts, null, 1)}
+${JSON.stringify(facts)}
 
 RULES:
 ${rules}
@@ -131,6 +135,7 @@ For every rule, set "holds":
 - Exclusion rule: does this exclusion APPLY to the patient? "yes", "no", or "unknown".
 - For exclusions about other illnesses or history (autoimmune disease, lung disease, infections, heart disease, other cancers), answer "no" when the profile's comorbidities and history don't mention it, and say "not mentioned in the reports" in the reason.
 - Use medical knowledge to connect terms: stage IV means metastatic; HER2 IHC 0 or 1+ is HER2-negative; palbociclib, ribociclib and abemaciclib are CDK4/6 inhibitors; letrozole, anastrozole, exemestane, fulvestrant and tamoxifen are endocrine therapies; osimertinib, gefitinib and erlotinib are EGFR TKIs. Work out time intervals from the dates given.
+- Rules about other medicines (e.g. "strong CYP3A4 inhibitors or inducers", "systemic corticosteroids", "anticoagulants", "other investigational drugs") must be checked against the profile's medications by drug class: clarithromycin, itraconazole and ketoconazole are strong CYP3A4 inhibitors; rifampicin, carbamazepine and phenytoin are strong CYP3A4 inducers. If a short course ends before the trial would start, say so in the reason.
 - Never invent facts that are not in the profile.
 
 Other fields:
@@ -138,8 +143,9 @@ Other fields:
 - reason: one short plain-English sentence a patient can understand.
 - evidence: the profile value you relied on (e.g. "ECOG 1"), or null.
 - question: only when holds is "unknown" and siteCheck is false, a short question the patient can ask their doctor (e.g. "What is my ECOG performance status?"). Otherwise null.
+- medicine: when the rule is about one of the patient's current medications, that medicine's generic name; otherwise null.
 - plainSummary: one plain-English sentence (at most 30 words) saying what this trial tests and for whom. No jargon.
 
 Reply with only JSON, with exactly one result for each of the ${criteria.length} rules above (use their ids):
-{"plainSummary": string, "results": [{"id": number, "holds": "yes" | "no" | "unknown", "siteCheck": boolean, "reason": string, "evidence": string | null, "question": string | null}]}`;
+{"plainSummary": string, "results": [{"id": number, "holds": "yes" | "no" | "unknown", "siteCheck": boolean, "reason": string, "evidence": string | null, "question": string | null, "medicine": string | null}]}`;
 }

@@ -8,6 +8,7 @@ export interface RuleAssessment {
   reason: string;
   evidence: string | null;
   question: string | null;
+  medicine: string | null;
 }
 
 /**
@@ -30,7 +31,7 @@ export function decideMatch(
   const results: CriterionResult[] = criteria.map((c) => {
     const a = byId.get(c.id);
     if (!a) {
-      return { ...c, verdict: "unknown", siteCheck: false, reason: "Not assessed.", evidence: null, question: null };
+      return { ...c, verdict: "unknown", siteCheck: false, reason: "Not assessed.", evidence: null, question: null, medicine: null };
     }
     return {
       ...c,
@@ -39,6 +40,7 @@ export function decideMatch(
       reason: a.reason,
       evidence: a.evidence,
       question: a.holds === "unknown" ? a.question : null,
+      medicine: a.medicine,
     };
   });
 

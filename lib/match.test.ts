@@ -17,6 +17,7 @@ const assess = (id: number, holds: RuleAssessment["holds"], extra: Partial<RuleA
   reason: "r",
   evidence: null,
   question: holds === "unknown" ? `Question ${id}?` : null,
+  medicine: null,
   ...extra,
 });
 

@@ -13,6 +13,7 @@ export function emptyProfile(): PatientProfile {
     biomarkers: [],
     treatments: [],
     ecog: null,
+    medications: [],
     labs: [],
     comorbidities: [],
     otherFindings: [],
@@ -30,6 +31,7 @@ export function normalizeProfile(input: Partial<PatientProfile> | null | undefin
     metastasisSites: input.metastasisSites ?? [],
     biomarkers: input.biomarkers ?? [],
     treatments: input.treatments ?? [],
+    medications: input.medications ?? [],
     labs: input.labs ?? [],
     comorbidities: input.comorbidities ?? [],
     otherFindings: input.otherFindings ?? [],
@@ -56,6 +58,15 @@ export function cleanProfile(p: PatientProfile): PatientProfile {
     treatments: p.treatments
       .map((t) => ({ ...t, name: t.name.trim(), details: trimOrNull(t.details), outcome: trimOrNull(t.outcome) }))
       .filter((t) => t.name),
+    medications: p.medications
+      .map((m) => ({
+        name: m.name.trim(),
+        genericName: trimOrNull(m.genericName),
+        dose: trimOrNull(m.dose),
+        until: trimOrNull(m.until),
+        reason: trimOrNull(m.reason),
+      }))
+      .filter((m) => m.name),
     labs: p.labs
       .map((l) => ({ name: l.name.trim(), value: l.value.trim(), unit: trimOrNull(l.unit) }))
       .filter((l) => l.name && l.value),

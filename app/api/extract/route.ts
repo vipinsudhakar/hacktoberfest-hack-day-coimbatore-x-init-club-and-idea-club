@@ -1,6 +1,6 @@
 import { UPLOAD_LIMITS, type ExtractRequest, type ExtractResponse } from "@/lib/api";
 import { generateJson } from "@/lib/gemma";
-import { errorResponse, gemmaErrorMessage } from "@/lib/http";
+import { errorResponse, gemmaErrorResponse } from "@/lib/http";
 import { EXTRACT_PROMPT, profileSchema } from "@/lib/prompts";
 
 // Reading a full report is the heaviest call; on Vercel it can take close to a minute.
@@ -34,6 +34,6 @@ export async function POST(request: Request) {
     return Response.json({ profile } satisfies ExtractResponse);
   } catch (err) {
     console.error("extract failed:", err);
-    return errorResponse(gemmaErrorMessage(err, "try again, or use clearer photos of the reports"), 502);
+    return gemmaErrorResponse(err, "try again, or use clearer photos of the reports");
   }
 }

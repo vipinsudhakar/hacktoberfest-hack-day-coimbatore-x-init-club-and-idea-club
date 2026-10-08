@@ -13,6 +13,15 @@ export interface Treatment {
   outcome: string | null; // e.g. "progressed after 14 months"
 }
 
+/** A medicine the patient currently takes, read from prescriptions or clinic notes. */
+export interface Medication {
+  name: string; // as written, e.g. "Tab. Clarithromycin 500 mg"
+  genericName: string | null; // active ingredient, e.g. "clarithromycin"
+  dose: string | null; // e.g. "500 mg twice daily"
+  until: string | null; // end date or duration if the prescription gives one, e.g. "till 06-Oct-2026"
+  reason: string | null; // what it is for, if stated
+}
+
 export interface LabResult {
   name: string;
   value: string;
@@ -32,6 +41,7 @@ export interface PatientProfile {
   biomarkers: Biomarker[];
   treatments: Treatment[];
   ecog: number | null; // ECOG performance status 0-5
+  medications: Medication[]; // current medicines; trial rules about other drugs are checked against these
   labs: LabResult[];
   comorbidities: string[];
   otherFindings: string[];
@@ -95,6 +105,8 @@ export interface CriterionResult extends Criterion {
   reason: string;
   evidence: string | null;
   question: string | null;
+  /** The patient's medicine this rule is about (e.g. "clarithromycin" for a CYP3A4 inhibitor rule), if any. */
+  medicine: string | null;
 }
 
 export type MatchStatus = "likely" | "possible" | "not_eligible";
