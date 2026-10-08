@@ -2,6 +2,7 @@
 // /api/trials falls back to this copy when ClinicalTrials.gov can't be reached.
 // Run with: npm run snapshot
 import { writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { searchTrials } from "../lib/ctgov.ts";
 import type { Trial } from "../lib/types.ts";
 
@@ -29,4 +30,4 @@ for (const term of TERMS) {
 
 const file = new URL("../data/ctgov-snapshot.json", import.meta.url);
 writeFileSync(file, JSON.stringify({ savedAt: new Date().toISOString(), searches }) + "\n");
-console.log(`saved ${file.pathname}`);
+console.log(`saved ${fileURLToPath(file)}`);
