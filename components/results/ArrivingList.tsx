@@ -1,8 +1,15 @@
 "use client";
 
-import { Component, createRef, type ReactNode } from "react";
+import { Children, Component, createRef, isValidElement, type ReactNode } from "react";
 
 type Positions = Map<string, number>;
+type Props = { children: ReactNode; className?: string; label: string };
+
+/** The children's keys in order, to tell whether anything arrived, left or moved. */
+const order = (children: ReactNode) =>
+  Children.toArray(children)
+    .map((child) => (isValidElement(child) ? child.key : ""))
+    .join("\n");
 
 const EASE_OUT_EXPO = "cubic-bezier(0.16, 1, 0.3, 1)";
 const EASE_OUT_QUART = "cubic-bezier(0.25, 1, 0.5, 1)";
@@ -17,7 +24,7 @@ function reducedMotion() {
  * slide down to make room instead of jumping. Children must be <li data-key="..."> elements.
  * A class component because getSnapshotBeforeUpdate is React's moment to read the old layout.
  */
-export class ArrivingList extends Component<{ children: ReactNode; className?: string; label: string }> {
+export class ArrivingList extends Component<Props> {
   private list = createRef<HTMLOListElement>();
 
   private measure(): Positions {
@@ -32,12 +39,14 @@ export class ArrivingList extends Component<{ children: ReactNode; className?: s
     this.animate(new Map());
   }
 
-  getSnapshotBeforeUpdate(): Positions {
+  // Same items in the same order: nothing to animate, so skip reading the layout.
+  getSnapshotBeforeUpdate(prevProps: Props): Positions | null {
+    if (order(prevProps.children) === order(this.props.children)) return null;
     return this.measure();
   }
 
-  componentDidUpdate(_: unknown, __: unknown, before: Positions) {
-    this.animate(before);
+  componentDidUpdate(_: unknown, __: unknown, before: Positions | null) {
+    if (before) this.animate(before);
   }
 
   private animate(before: Positions) {

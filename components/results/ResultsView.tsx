@@ -5,11 +5,19 @@ import type { ScreenedOutTrial, TrialsResponse } from "@/lib/api";
 import { translateTexts } from "@/lib/client/api";
 import { TranslateContext } from "@/lib/client/i18n";
 import { profileHeadline } from "@/lib/client/profile";
-import { rowFilterKey, sortRows, type ResultFilter, type TrialRow } from "@/lib/client/results";
+import {
+  countRows,
+  formatSavedDate,
+  rowFilterKey,
+  sortRows,
+  type ResultFilter,
+  type RowCounts,
+  type TrialRow,
+} from "@/lib/client/results";
 import type { PatientProfile, Trial } from "@/lib/types";
 import { Disclaimer } from "../Disclaimer";
 import { ErrorNotice } from "../ErrorNotice";
-import { AlertTriangle, ArrowLeft, ChevronDown, Clock, ExternalLink, Info, Printer, Spinner } from "../Icons";
+import { AlertTriangle, ArrowLeft, ChevronDown, Clock, ExternalLink, Info, Plus, Printer, Spinner } from "../Icons";
 import { buttonPrimary, buttonSecondary, pageTitle, panel, sectionTitle } from "../ui";
 import { ArrivingList } from "./ArrivingList";
 import { LanguageSwitch, type ResultLanguage } from "./LanguageSwitch";
@@ -31,31 +39,50 @@ export function remainingSetAside(response: TrialsResponse, rows: TrialRow[]): S
   return (response.screenedOut ?? []).filter((s) => !checking.has(s.trial.nctId));
 }
 
-function Progress({ rows }: { rows: TrialRow[] }) {
-  const total = rows.length;
-  const checked = rows.filter((r) => rowFilterKey(r) !== null).length;
+/** Never counts a trial that couldn't be checked as checked. */
+function progressHeadline({ total, done, failed, pending }: RowCounts): string {
+  if (pending > 0) return `Checking ${trialsWord(total)}, rule by rule`;
+  if (failed === 0) return `All ${trialsWord(total)} checked, rule by rule`;
+  return `${done} of ${trialsWord(total)} checked · ${failed} couldn't be checked`;
+}
+
+/** The same news for screen readers, read out from one live region that stays on the page. */
+function progressAnnouncement(rows: TrialRow[], { total, done, failed, pending }: RowCounts): string {
   const waiting = rows.filter((r) => r.evaluation.state === "waiting").length;
   const likely = rows.filter((r) => rowFilterKey(r) === "likely").length;
-  const done = checked >= total;
-  const fraction = total === 0 ? 1 : checked / total;
+  return [
+    pending === 0 && failed === 0 ? `All ${trialsWord(total)} checked.` : `${done} of ${trialsWord(total)} checked.`,
+    failed > 0 ? `${failed} couldn't be checked.` : "",
+    waiting > 0 ? `${trialsWord(waiting)} waiting for Gemma's free tier.` : "",
+    likely > 0 ? `${likely} likely ${likely === 1 ? "match" : "matches"}${pending > 0 ? " so far" : ""}.` : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+function Progress({ rows, counts }: { rows: TrialRow[]; counts: RowCounts }) {
+  const { total, done, failed, pending } = counts;
+  const waiting = rows.filter((r) => r.evaluation.state === "waiting").length;
+  const finished = done + failed;
+  const fraction = total === 0 ? 1 : finished / total;
 
   return (
     <div className="border-y border-line py-5">
       <div className="flex items-baseline justify-between gap-4">
         <p className="flex items-center gap-2.5 font-semibold text-ink">
-          {!done && <Spinner size={18} className="shrink-0 text-accent" />}
-          {done ? `All ${trialsWord(total)} checked, rule by rule` : `Checking ${trialsWord(total)}, rule by rule`}
+          {pending > 0 && <Spinner size={18} className="shrink-0 text-accent" />}
+          {progressHeadline(counts)}
         </p>
         <p className="shrink-0 font-mono text-sm tabular-nums text-ink-3" aria-hidden="true">
-          {checked}/{total}
+          {finished}/{total}
         </p>
       </div>
       <div
         role="progressbar"
-        aria-label="Trials checked"
+        aria-label="Trials finished"
         aria-valuemin={0}
         aria-valuemax={total}
-        aria-valuenow={checked}
+        aria-valuenow={finished}
         className="mt-3 h-1.5 overflow-hidden rounded-full bg-stone-2"
       >
         {/* Scaled, not resized: the fill glides without re-laying out the page. */}
@@ -64,16 +91,16 @@ function Progress({ rows }: { rows: TrialRow[] }) {
           style={{ transform: `scaleX(${fraction})` }}
         />
       </div>
-      <p className="sr-only" aria-live="polite">
-        {done
-          ? `All ${trialsWord(total)} checked.`
-          : `${checked} of ${trialsWord(total)} checked.${waiting ? ` ${trialsWord(waiting)} waiting for Gemma's free tier.` : ""}`}
-        {likely > 0 ? ` ${likely} likely ${likely === 1 ? "match" : "matches"} so far.` : ""}
-      </p>
-      {!done && (
+      {pending > 0 && (
         <p className="mt-3 text-sm text-ink-3">
           Gemma 4 checks each trial against every one of its rules. Results appear below as they finish; with many
           trials this takes a few minutes.
+        </p>
+      )}
+      {pending === 0 && failed > 0 && (
+        <p className="mt-3 text-sm text-ink-3">
+          The results are partial. Use Retry on {failed === 1 ? "the trial" : "each trial"} below that couldn&apos;t
+          be checked.
         </p>
       )}
       {waiting > 0 && (
@@ -148,7 +175,7 @@ function Pending({ rows }: { rows: TrialRow[] }) {
                     Waiting for Gemma&apos;s free tier · retry in{" "}
                     <Countdown key={evaluation.retryAt} retryAt={evaluation.retryAt} seconds={evaluation.seconds} />
                     <span className="block text-xs tabular-nums text-ink-3 sm:text-right">
-                      Try {evaluation.attempt} of {evaluation.maxAttempts}
+                      Retry {evaluation.attempt} of {evaluation.maxAttempts}
                     </span>
                   </span>
                 </>
@@ -165,7 +192,7 @@ function Pending({ rows }: { rows: TrialRow[] }) {
 function SearchingSkeleton({ cancerType }: { cancerType: string | null }) {
   return (
     <div className="space-y-5">
-      <div className="flex items-center gap-3 border-y border-line py-5" aria-live="polite">
+      <div className="flex items-center gap-3 border-y border-line py-5">
         <Spinner size={20} className="shrink-0 text-accent" />
         <p className="text-ink">
           Searching ClinicalTrials.gov for trials recruiting in India for{" "}
@@ -192,15 +219,23 @@ function SearchingSkeleton({ cancerType }: { cancerType: string | null }) {
   );
 }
 
-/** "20 found · 9 checked rule by rule · 11 set aside at a first look", counting honestly as trials move between groups. */
-function SearchSummary({ response, rows, setAside }: { response: TrialsResponse; rows: TrialRow[]; setAside: number }) {
-  const ruledOutByAgeOrSex = Math.max(0, response.totalFound - rows.length - setAside);
+/** "20 found · 9 to check rule by rule · 11 set aside at a first look", counting honestly as trials move between groups. */
+function SearchSummary({ response, counts, setAside }: { response: TrialsResponse; counts: RowCounts; setAside: number }) {
+  const ruledOutByAgeOrSex = Math.max(0, response.totalFound - counts.total - setAside);
+  const checkParts: [number, string][] =
+    counts.pending > 0
+      ? [[counts.total, "to check rule by rule"]]
+      : [
+          [counts.done, "checked rule by rule"],
+          [counts.failed, "couldn't be checked"],
+        ];
   const parts: [number, string][] = [
     [response.totalFound, "found"],
-    [rows.length, "checked rule by rule"],
+    ...checkParts,
     [setAside, "set aside at a first look"],
     [ruledOutByAgeOrSex, "not open to the patient's age or sex"],
   ];
+  const savedOn = formatSavedDate(response.snapshotSavedAt);
   return (
     <div className="-mt-4 space-y-3">
       <p className="max-w-[42rem] text-ink-2">
@@ -226,7 +261,8 @@ function SearchSummary({ response, rows, setAside }: { response: TrialsResponse;
           <Info size={18} className="mt-0.5 shrink-0 text-ink-3" />
           <p>
             <strong className="font-semibold text-ink">ClinicalTrials.gov couldn&apos;t be reached just now,</strong>{" "}
-            so TrialBridge used its saved copy of the registry. A trial may have closed or changed since; check each
+            so TrialBridge used its saved copy {savedOn ? `from ${savedOn}` : "of the registry"}. A trial may have
+            closed or changed since; check each
             trial&apos;s page for its latest status.
           </p>
         </div>
@@ -239,12 +275,10 @@ function SearchSummary({ response, rows, setAside }: { response: TrialsResponse;
 function SetAside({
   items,
   open,
-  canCheck,
   onCheckAnyway,
 }: {
   items: ScreenedOutTrial[];
   open: boolean;
-  canCheck: boolean;
   onCheckAnyway: (trial: Trial) => void;
 }) {
   // Open on arrival only when there's nothing else to show; after that it's the reader's to open or close.
@@ -285,7 +319,6 @@ function SetAside({
               <button
                 type="button"
                 onClick={() => onCheckAnyway(trial)}
-                disabled={!canCheck}
                 className={`${buttonSecondary} shrink-0 self-start text-[0.9375rem]`}
               >
                 Check every rule anyway
@@ -361,6 +394,7 @@ export function ResultsView({
   onRetryTrial,
   onCheckAnyway,
   onEditProfile,
+  onStartOver,
   celebrateId,
 }: {
   profile: PatientProfile;
@@ -370,17 +404,32 @@ export function ResultsView({
   onRetryTrial: (trial: Trial) => void;
   onCheckAnyway: (trial: Trial) => void;
   onEditProfile: () => void;
+  onStartOver?: () => void;
   celebrateId: string | null;
 }) {
   const [filter, setFilter] = useState<ResultFilter>("all");
+  const counts = countRows(rows);
   const finished = sortRows(rows.filter((r) => rowFilterKey(r) !== null));
   const pending = rows.filter((r) => rowFilterKey(r) === null);
   const visible = filter === "all" ? finished : finished.filter((r) => rowFilterKey(r) === filter);
-  const anyDone = rows.some((r) => r.evaluation.state === "done");
+  const doneRows = rows.filter((r) => r.evaluation.state === "done");
+  const anyDone = doneRows.length > 0;
   const ready = search.phase === "ready" ? search.response : null;
   const setAside = ready ? remainingSetAside(ready, rows) : [];
-  const allChecked = rows.length > 0 && pending.length === 0;
-  const noneFit = allChecked && finished.every((r) => rowFilterKey(r) === "not_eligible");
+  // "All checked" means nothing pending and nothing failed; none-fit looks only at trials that were checked.
+  const allChecked = rows.length > 0 && counts.pending === 0 && counts.failed === 0;
+  const noneFit = counts.pending === 0 && anyDone && doneRows.every((r) => rowFilterKey(r) === "not_eligible");
+  const printLabel = allChecked
+    ? "Print a summary for the oncologist"
+    : counts.pending > 0
+      ? "Print the results so far (still checking)"
+      : "Print the partial results (some trials couldn't be checked)";
+  const announcement =
+    search.phase === "searching"
+      ? `Searching ClinicalTrials.gov for trials recruiting in India for "${profile.cancerType ?? ""}"…`
+      : rows.length > 0
+        ? progressAnnouncement(rows, counts)
+        : "";
   const nothingFound = ready !== null && rows.length === 0 && setAside.length === 0;
 
   // Tamil / Hindi: once every trial is checked, Gemma translates the explanations in one batched call.
@@ -426,12 +475,21 @@ export function ResultsView({
           <button type="button" onClick={onEditProfile} className={buttonSecondary}>
             <ArrowLeft size={18} /> Edit details
           </button>
+          {onStartOver && (
+            <button type="button" onClick={onStartOver} className={buttonSecondary}>
+              <Plus size={18} /> Start another patient
+            </button>
+          )}
           {ready && rows.length > 0 && (
             <button type="button" onClick={() => window.print()} className={buttonPrimary}>
-              <Printer size={20} /> {allChecked ? "Print a summary for the oncologist" : "Print the results so far (still checking)"}
+              <Printer size={20} /> {printLabel}
             </button>
           )}
         </div>
+        {/* One live region for the whole search, so screen readers hear each update without a new region appearing. */}
+        <p className="sr-only" role="status" aria-live="polite">
+          {announcement}
+        </p>
         {ready && rows.length > 0 && (
           <div className="mt-6">
             <LanguageSwitch
@@ -459,7 +517,7 @@ export function ResultsView({
 
       {ready && (
         <>
-          <SearchSummary response={ready} rows={rows} setAside={setAside.length} />
+          <SearchSummary response={ready} counts={counts} setAside={setAside.length} />
 
           {nothingFound && (
             <div className={`${panel} px-5 py-6 sm:px-7`}>
@@ -487,9 +545,9 @@ export function ResultsView({
 
           {rows.length > 0 && (
             <>
-              <Progress rows={rows} />
+              <Progress rows={rows} counts={counts} />
 
-              {noneFit && <NoneFit total={rows.length} setAside={setAside.length} onEditProfile={onEditProfile} />}
+              {noneFit && <NoneFit total={counts.done} setAside={setAside.length} onEditProfile={onEditProfile} />}
 
               {anyDone && <MedicinesPanel medications={profile.medications} rows={rows} onEditProfile={onEditProfile} />}
 
@@ -528,7 +586,6 @@ export function ResultsView({
           <SetAside
             items={setAside}
             open={rows.length === 0}
-            canCheck={search.phase === "ready"}
             onCheckAnyway={onCheckAnyway}
           />
         </>

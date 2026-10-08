@@ -195,7 +195,7 @@ export function TrialCard({
             We couldn&apos;t check this trial&apos;s rules.{" "}
             <span className="text-ink-2">
               {evaluation.rateLimited
-                ? "Gemma's free tier is still busy after three tries. Wait a minute, then retry."
+                ? "Gemma's free tier is still busy after three retries. Wait a minute, then retry."
                 : evaluation.message}
             </span>
           </p>

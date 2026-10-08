@@ -76,7 +76,7 @@ function RuleSection({ title, note, rules }: { title: string; note: string; rule
   );
 }
 
-export function Legend() {
+function Legend() {
   const items = [VERDICT_META.pass, VERDICT_META.fail, VERDICT_META.unknown, SITE_META];
   return (
     <ul className="flex flex-wrap gap-x-5 gap-y-1.5 text-sm text-ink-2" aria-label="What the symbols mean">

@@ -46,6 +46,23 @@ export function rowFilterKey(row: TrialRow): ResultFilter | null {
   return null;
 }
 
+export type RowCounts = { total: number; done: number; failed: number; pending: number };
+
+/** Checked, failed and still-pending trials, counted apart so a failure is never reported as "checked". */
+export function countRows(rows: TrialRow[]): RowCounts {
+  const done = rows.filter((r) => r.evaluation.state === "done").length;
+  const failed = rows.filter((r) => r.evaluation.state === "error").length;
+  return { total: rows.length, done, failed, pending: rows.length - done - failed };
+}
+
+/** "2026-10-08T…" -> "8 Oct 2026" (the saved date, whatever the reader's time zone), or null if unreadable. */
+export function formatSavedDate(iso: string | undefined): string | null {
+  if (!iso) return null;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return null;
+  return date.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+}
+
 /** "PHASE2" -> "Phase 2", "EARLY_PHASE1" -> "Early phase 1", "NA" -> null. */
 export function formatPhase(phase: string): string | null {
   const p = phase.trim().toUpperCase().replace(/[\s-]+/g, "_");
@@ -85,7 +102,7 @@ export function sameCity(a: string | null | undefined, b: string | null | undefi
 const simplify = (text: string) => text.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
 
 /** Index of the patient's medicine a rule names (by generic or written name), or -1. */
-export function findMedication(medications: Medication[], medicine: string): number {
+function findMedication(medications: Medication[], medicine: string): number {
   const wanted = simplify(medicine);
   if (!wanted) return -1;
   return medications.findIndex((med) =>
@@ -96,7 +113,7 @@ export function findMedication(medications: Medication[], medicine: string): num
   );
 }
 
-export type MedicineNote = { trial: Trial; rule: CriterionResult };
+type MedicineNote = { trial: Trial; rule: CriterionResult };
 
 export type MedicineGroup = {
   key: string;

@@ -9,18 +9,18 @@ import { buttonSecondary, fieldHint } from "../ui";
 /** A ready-to-send, de-identified note to the trial team, for trials worth asking about. */
 export function ContactMessage({ trial, match, profile }: { trial: Trial; match: TrialMatch; profile: PatientProfile }) {
   const text = useMemo(() => buildTrialMessage(trial, match, profile), [trial, match, profile]);
-  const [copied, setCopied] = useState(false);
+  const [copy, setCopy] = useState<"idle" | "copied" | "failed">("idle");
   const email = trial.contacts.find((c) => c.email)?.email ?? "";
   const subject = `Screening enquiry: ${trial.nctId}`;
 
-  async function copy() {
+  async function copyMessage() {
     try {
       await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
+      setCopy("copied");
     } catch {
-      setCopied(false);
+      setCopy("failed");
     }
+    setTimeout(() => setCopy("idle"), 2500);
   }
 
   return (
@@ -41,8 +41,8 @@ export function ContactMessage({ trial, match, profile }: { trial: Trial; match:
         className="mt-3 w-full resize-y rounded-md border border-line bg-paper p-3 font-mono text-[0.8125rem] leading-relaxed text-ink"
       />
       <div className="mt-3 flex flex-wrap gap-2">
-        <button type="button" onClick={copy} className={buttonSecondary} aria-live="polite">
-          {copied ? "Copied" : "Copy message"}
+        <button type="button" onClick={copyMessage} className={buttonSecondary}>
+          {copy === "copied" ? "Copied" : copy === "failed" ? "Couldn't copy" : "Copy message"}
         </button>
         <a
           href={`https://wa.me/?text=${encodeURIComponent(text)}`}
@@ -59,6 +59,9 @@ export function ContactMessage({ trial, match, profile }: { trial: Trial; match:
           {email ? "Email the trial contact" : "Open in email"}
         </a>
       </div>
+      <p role="status" className="sr-only">
+        {copy === "copied" ? "Message copied" : copy === "failed" ? "Couldn't copy the message" : ""}
+      </p>
     </details>
   );
 }

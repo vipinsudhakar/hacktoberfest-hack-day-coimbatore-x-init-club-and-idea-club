@@ -43,6 +43,12 @@ export function LanguageSwitch({
               onChange={() => onChange(o.value)}
               className="sr-only"
             />
+            {/* A check mark, so the choice doesn't rely on colour alone. */}
+            {value === o.value && (
+              <span aria-hidden="true" className="mr-1.5">
+                ✓
+              </span>
+            )}
             {o.label}
           </label>
         ))}
