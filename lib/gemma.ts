@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { GoogleGenAI, ThinkingLevel, createPartFromBase64, type Part } from "@google/genai";
 import type { z } from "zod";
 import type { ImageUpload } from "./api";
-import { suggestedRetrySeconds } from "./http";
+import { suggestedRetrySeconds } from "./http.ts";
 
 // Gemma 4 is an open-weight model (Apache 2.0); here it is served through the Gemini API.
 export const GEMMA_MODEL = process.env.GEMMA_MODEL || "gemma-4-26b-a4b-it";
@@ -13,10 +13,15 @@ const DEFAULT_BUDGET_MS = 55_000; // for routes with maxDuration = 60
 const MIN_CALL_MS = 5_000;
 
 let clients: GoogleGenAI[] | undefined;
-// Keys the API rejected (deleted or revoked); the next listed key takes over.
-const rejected = new Set<GoogleGenAI>();
-// Flipped off if the API rejects JSON mode for Gemma; prompts already ask for JSON either way.
-let jsonModeSupported = true;
+// When the API rejected each key (deleted or revoked); the next listed key takes over.
+const rejectedAt = new Map<GoogleGenAI, number>();
+// When the API last rejected JSON mode for Gemma; prompts already ask for JSON either way.
+let jsonModeRejectedAt: number | undefined;
+// A rejected key or JSON mode gets another chance after this, in case the problem was temporary.
+const RECHECK_AFTER_MS = 10 * 60 * 1000;
+
+const recently = (at: number | undefined) => at !== undefined && Date.now() - at < RECHECK_AFTER_MS;
+const isRejected = (client: GoogleGenAI) => recently(rejectedAt.get(client));
 
 function getClients(): GoogleGenAI[] {
   if (!clients) {
@@ -33,7 +38,7 @@ function getClients(): GoogleGenAI[] {
 /** The first key the API hasn't rejected; later keys are only backups for a deleted or revoked key. */
 function pickClient(): GoogleGenAI {
   const all = getClients();
-  return all.find((c) => !rejected.has(c)) ?? all[0];
+  return all.find((c) => !isRejected(c)) ?? all[0];
 }
 
 /** Pulls the JSON value out of a reply that may be wrapped in a code fence or extra text. */
@@ -53,8 +58,15 @@ const CACHE_TTL_MS = 60 * 60 * 1000; // answers contain medical details, so they
 const answers = new Map<string, { value: unknown; at: number }>();
 
 function remember(key: string, value: unknown) {
+  const now = Date.now();
+  answers.delete(key); // re-adding moves the key to the end, so the map stays ordered oldest first
+  // Expired answers sit at the front: drop them before making room.
+  for (const [oldKey, entry] of answers) {
+    if (now - entry.at <= CACHE_TTL_MS) break;
+    answers.delete(oldKey);
+  }
   if (answers.size >= MAX_CACHED_ANSWERS) answers.delete(answers.keys().next().value as string);
-  answers.set(key, { value, at: Date.now() });
+  answers.set(key, { value, at: now });
 }
 
 function recall(key: string): { value: unknown } | null {
@@ -79,6 +91,7 @@ async function callGemma(parts: Part[], deadline: number, signal?: AbortSignal):
     const remaining = deadline - Date.now();
     if (remaining < MIN_CALL_MS) throw new Error("Gemma request timed out: no time left in this request.");
     const client = pickClient();
+    const jsonMode = !recently(jsonModeRejectedAt);
     try {
       const response = await client.models.generateContent({
         model: GEMMA_MODEL,
@@ -90,19 +103,19 @@ async function callGemma(parts: Part[], deadline: number, signal?: AbortSignal):
           thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
           httpOptions: { timeout: remaining },
           ...(signal ? { abortSignal: signal } : {}),
-          ...(jsonModeSupported ? { responseMimeType: "application/json" } : {}),
+          ...(jsonMode ? { responseMimeType: "application/json" } : {}),
         },
       });
       return response.text ?? "";
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      if (jsonModeSupported && /json mode|response_?mime_?type/i.test(message)) {
-        jsonModeSupported = false;
+      if (jsonMode && /json mode|response_?mime_?type/i.test(message)) {
+        jsonModeRejectedAt = Date.now();
         continue;
       }
       if (/\b(401|403)\b|api key not valid|permission.?denied|unauthenticated/i.test(message)) {
-        rejected.add(client);
-        if (getClients().some((c) => !rejected.has(c))) continue; // try another key straight away
+        rejectedAt.set(client, Date.now());
+        if (getClients().some((c) => !isRejected(c))) continue; // try another key straight away
       }
       const retryable = /\b(429|500|502|503|504)\b|overloaded|unavailable|resource.?exhausted/i.test(message);
       const wait = retryWaitMs(message, attempt);

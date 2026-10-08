@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { DocumentCheck } from "./api";
-import { splitCriteria } from "./criteria";
+import { splitCriteria } from "./criteria.ts";
 import type { RuleAssessment } from "./match";
 import type { ScreenDecision } from "./screen";
 import type { Criterion, PatientProfile, Trial } from "./types";
