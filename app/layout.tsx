@@ -6,6 +6,8 @@ import "./globals.css";
 const body = Atkinson_Hyperlegible_Next({
   variable: "--font-body",
   subsets: ["latin"],
+  // next/font has no fallback metrics for this family; skip the adjusted fallback instead of warning.
+  adjustFontFallback: false,
 });
 
 const heading = Source_Serif_4({
