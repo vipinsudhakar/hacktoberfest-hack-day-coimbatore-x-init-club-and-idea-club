@@ -75,7 +75,7 @@ flowchart LR
   T -->|cancer type, India, recruiting| CT[(ClinicalTrials.gov API v2)]
   T -.->|registry unreachable| S[(Saved registry snapshot)]
   T -->|candidates filtered by age and sex| UI
-  UI -->|one trial per request, 6 in parallel - POST /api/evaluate| E[Evaluate route]
+  UI -->|one trial per request, 3 at a time - POST /api/evaluate| E[Evaluate route]
   E -->|eligibility text| R[Rule splitter]
   E -->|profile + numbered rules| G
   G -->|holds yes / no / unknown per rule| E
@@ -272,7 +272,7 @@ TrialBridge is a screening aid, not medical advice. Only the trial team can conf
 - [x] Technical implementation documented
 - [x] Work completed during the hackathon documented
 - [ ] Team contributions documented
-- [ ] Working application is functional
+- [x] Working application is functional
 - [x] Live application link added where applicable
 - [ ] Demo video added
 - [x] AI and open-source components documented
