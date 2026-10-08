@@ -1,5 +1,7 @@
 import { z } from "zod";
+import { splitCriteria } from "./criteria";
 import type { RuleAssessment } from "./match";
+import type { ScreenDecision } from "./screen";
 import type { Criterion, PatientProfile, Trial } from "./types";
 
 // Model replies are parsed leniently: a malformed field falls back to "not stated"
@@ -150,4 +152,52 @@ Other fields:
 
 Reply with only JSON, with exactly one result for each of the ${criteria.length} rules above (use their ids):
 {"plainSummary": string, "results": [{"id": number, "holds": "yes" | "no" | "unknown", "siteCheck": boolean, "reason": string, "evidence": string | null, "question": string | null, "medicine": string | null}]}`;
+}
+
+export const screenSchema = z.object({
+  results: listOf(
+    z.object({
+      nctId: z.string(),
+      decision: z.preprocess(lower, z.enum(["check", "skip"])).catch("check"),
+      reason: z.string().catch(""),
+    }),
+  ),
+}) as unknown as z.ZodType<{ results: ScreenDecision[] }>;
+
+/** One short call that sets aside trials clearly meant for a different group, before the rule-by-rule checks. */
+export function screenPrompt(profile: PatientProfile, trials: Trial[]): string {
+  const patient = {
+    age: profile.age,
+    sex: profile.sex,
+    cancerType: profile.cancerType,
+    histology: profile.histology,
+    stage: profile.stage,
+    metastatic: profile.metastatic,
+    biomarkers: profile.biomarkers,
+    treatments: profile.treatments.map((t) => `${t.name}${t.outcome ? ` (${t.outcome})` : ""}`),
+  };
+  const list = trials
+    .map((t) => {
+      const keyRules = splitCriteria(t.eligibilityText)
+        .filter((c) => c.kind === "inclusion")
+        .slice(0, 4)
+        .map((c) => `  - ${c.text.slice(0, 160)}`)
+        .join("\n");
+      return `${t.nctId}: ${t.title}\n  Conditions: ${t.conditions.join("; ") || "not listed"}\n${keyRules}`;
+    })
+    .join("\n");
+
+  return `You are pre-screening clinical trials for a cancer patient before a detailed rule-by-rule check.
+
+PATIENT: ${JSON.stringify(patient)}
+
+TRIALS:
+${list}
+
+For each trial decide:
+- "check": this patient could belong to the trial's target group, or you are not sure.
+- "skip": the trial is clearly for a different group of patients, e.g. a different cancer type or subtype (HER2-positive vs HER2-negative, triple-negative vs hormone receptor-positive, EGFR-mutant vs not), a different disease setting (early or operable vs metastatic), children, healthy volunteers, or a study that does not treat or follow this kind of patient.
+Be inclusive: skip only when the mismatch is clear from what is written. For skips, give one short plain-English reason a patient can understand.
+
+Reply with only JSON: {"results": [{"nctId": string, "decision": "check" | "skip", "reason": string}]} with one entry per trial.`;
 }

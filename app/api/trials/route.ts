@@ -1,8 +1,16 @@
 import type { TrialsRequest, TrialsResponse } from "@/lib/api";
 import { broaderSearchTerm, filterByAgeAndSex, orderForChecking, searchTrials } from "@/lib/ctgov";
+import { generateJson } from "@/lib/gemma";
 import { errorResponse } from "@/lib/http";
+import { screenPrompt, screenSchema } from "@/lib/prompts";
+import { applyScreen } from "@/lib/screen";
 import type { Trial } from "@/lib/types";
 import snapshotJson from "@/data/ctgov-snapshot.json";
+
+export const maxDuration = 60;
+
+// Below this many candidates the quick screen saves little, so every trial is checked in full.
+const SCREEN_FROM = 6;
 
 const snapshot = snapshotJson as unknown as { savedAt: string; searches: Record<string, Trial[]> };
 
@@ -43,8 +51,20 @@ export async function POST(request: Request) {
     source = "snapshot";
   }
 
+  const candidates = orderForChecking(filterByAgeAndSex(trials, profile), profile);
+  let screened = { toCheck: candidates, screenedOut: [] as TrialsResponse["screenedOut"] };
+  if (candidates.length >= SCREEN_FROM) {
+    try {
+      const reply = await generateJson(screenPrompt(profile, candidates), screenSchema, [], 40_000);
+      screened = applyScreen(candidates, reply.results);
+    } catch (err) {
+      console.error("quick screen failed, checking every trial:", err);
+    }
+  }
+
   return Response.json({
-    trials: orderForChecking(filterByAgeAndSex(trials, profile), profile),
+    trials: screened.toCheck,
+    screenedOut: screened.screenedOut,
     searchTerm,
     totalFound: trials.length,
     source,
