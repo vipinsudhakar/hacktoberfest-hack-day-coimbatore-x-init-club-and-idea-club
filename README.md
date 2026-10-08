@@ -86,7 +86,7 @@ flowchart LR
 | Backend         | Next.js route handlers (Node.js), zod for validating model output |
 | Database        | N/A (a JSON snapshot of the registry is bundled as an offline fallback) |
 | AI / ML         | Gemma 4 (`gemma-4-26b-a4b-it`) through the Google Gen AI SDK (`@google/genai`) |
-| Infrastructure  | [Vercel – deployment in progress] |
+| Infrastructure  | Vercel (serverless functions: up to 120 s for reading reports, 60 s per trial check) |
 | APIs / Services | ClinicalTrials.gov API v2, Gemini API |
 
 
@@ -135,11 +135,14 @@ Everything in this branch was built on 8 October 2026 during the Hack Day:
 
 ## Working Application
 
-**Live Application:** [Live URL]
+**Live Application:** https://trialbridge-beta.vercel.app
 
-[Briefly explain how the deployed application can be accessed and what functionality can be tested.]
+1. Open the link and click a **sample patient** (synthetic reports), or upload photos of real reports.
+2. Reading the reports takes about 30–60 seconds. Review the profile, then click **Find matching trials**.
+3. Checking every recruiting trial in India takes about 2 minutes. Results appear as each trial finishes.
+4. Open any trial to see its rule-by-rule checklist, and use **Print summary for your oncologist**.
 
-The submitted application should be functional and accessible through the provided link where applicable.
+The live app runs on Gemma's free tier. If many people use it at once, it may say Gemma is busy; wait a minute and try again.
 
 ## Demo Video
 
@@ -185,7 +188,7 @@ npm install
 Copy `.env.example` to `.env.local` and fill in the key:
 
 ```env
-GEMINI_API_KEY=your-key-from-ai-studio
+GEMINI_API_KEY=your-key-from-ai-studio   # or several keys separated by commas, used in rotation
 GEMMA_MODEL=gemma-4-26b-a4b-it
 ```
 
@@ -212,7 +215,6 @@ TrialBridge is a screening aid, not medical advice. Only the trial team can conf
 - **Latency was the first wall.** The first parallel runs took about 3 minutes per trial. The same check with thinking set to minimal took 26 s and used no thinking tokens. We switched, wrote the medical connections into the prompt instead (stage IV means metastatic, HER2 IHC 1+ is HER2-negative, which drugs are CDK4/6 inhibitors), and a 4-trial batch dropped to 42 s.
 - **Real eligibility text is messy.** Registry criteria mix headings with and without colons, `*` and numbered bullets, nested sub-rules, escaped characters and boilerplate notes. We built the splitter against real records and kept fixing it until a sanity run over 33 trials produced clean rules.
 - **Exclusion criteria invite double negatives.** Asking "does the patient pass this exclusion?" was ambiguous, so we ask "does this exclusion apply?" and flip the answer in code.
-- **Venue networks are unpredictable.** Some domains were blocked on the venue Wi-Fi, so the trials route falls back to a saved snapshot of the registry.
 - **Hosting limits shape the design.** Request size and duration limits led to shrinking photos in the browser and checking one trial per request.
 
 ## Devpost Submission

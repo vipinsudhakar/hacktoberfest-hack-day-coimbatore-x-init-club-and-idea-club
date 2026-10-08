@@ -5,22 +5,31 @@ import type { ImageUpload } from "./api";
 // Gemma 4 is an open-weight model (Apache 2.0); here it is served through the Gemini API.
 export const GEMMA_MODEL = process.env.GEMMA_MODEL || "gemma-4-26b-a4b-it";
 
-// The API routes allow 60 s (maxDuration). All attempts for one request share this budget,
+// All attempts for one request share a time budget that stays under the route's maxDuration,
 // so a slow reply or a retry ends in our own JSON error instead of a platform timeout page.
-const REQUEST_BUDGET_MS = 55_000;
+const DEFAULT_BUDGET_MS = 55_000; // for routes with maxDuration = 60
 const MIN_CALL_MS = 5_000;
 
-let client: GoogleGenAI | undefined;
+let clients: GoogleGenAI[] | undefined;
+let nextClient = 0;
 // Flipped off if the API rejects JSON mode for Gemma; prompts already ask for JSON either way.
 let jsonModeSupported = true;
 
-function getClient(): GoogleGenAI {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) {
-    throw new Error("GEMINI_API_KEY is not set. Copy .env.example to .env.local and add your key.");
+function getClients(): GoogleGenAI[] {
+  if (!clients) {
+    // One key, or several separated by commas: calls rotate across them to spread free-tier limits.
+    const keys = (process.env.GEMINI_API_KEY ?? "").split(",").map((k) => k.trim()).filter(Boolean);
+    if (!keys.length) {
+      throw new Error("GEMINI_API_KEY is not set. Copy .env.example to .env.local and add your key.");
+    }
+    clients = keys.map((apiKey) => new GoogleGenAI({ apiKey }));
   }
-  client ??= new GoogleGenAI({ apiKey });
-  return client;
+  return clients;
+}
+
+function pickClient(): GoogleGenAI {
+  const all = getClients();
+  return all[nextClient++ % all.length];
 }
 
 /** Pulls the JSON value out of a reply that may be wrapped in a code fence or extra text. */
@@ -34,12 +43,19 @@ export function extractJson(text: string): string {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/** How long to wait before retrying: the delay a 429 asks for, or a short backoff. */
+function retryWaitMs(message: string, attempt: number): number {
+  if (getClients().length > 1) return 500; // the next call goes to a different key
+  const asked = message.match(/retryDelay"?:\s*"(\d+(?:\.\d+)?)s"/);
+  return asked ? Number(asked[1]) * 1000 + 500 : 2000 * (attempt + 1);
+}
+
 async function callGemma(parts: Part[], deadline: number): Promise<string> {
   for (let attempt = 0; ; attempt++) {
     const remaining = deadline - Date.now();
     if (remaining < MIN_CALL_MS) throw new Error("Gemma request timed out: no time left in this request.");
     try {
-      const response = await getClient().models.generateContent({
+      const response = await pickClient().models.generateContent({
         model: GEMMA_MODEL,
         contents: [{ role: "user", parts }],
         config: {
@@ -59,7 +75,7 @@ async function callGemma(parts: Part[], deadline: number): Promise<string> {
         continue;
       }
       const retryable = /\b(429|500|502|503|504)\b|overloaded|unavailable|resource.?exhausted/i.test(message);
-      const wait = 2000 * (attempt + 1);
+      const wait = retryWaitMs(message, attempt);
       if (!retryable || attempt >= 3 || deadline - Date.now() - wait < MIN_CALL_MS) throw err;
       await sleep(wait);
     }
@@ -75,8 +91,9 @@ export async function generateJson<T>(
   prompt: string,
   schema: z.ZodType<T>,
   images: ImageUpload[] = [],
+  budgetMs = DEFAULT_BUDGET_MS,
 ): Promise<T> {
-  const deadline = Date.now() + REQUEST_BUDGET_MS;
+  const deadline = Date.now() + budgetMs;
   const imageParts = images.map((img) => createPartFromBase64(img.data, img.mimeType));
   let feedback = "";
   for (let attempt = 0; attempt < 2; attempt++) {

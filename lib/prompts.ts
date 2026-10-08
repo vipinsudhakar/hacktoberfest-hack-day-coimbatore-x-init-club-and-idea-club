@@ -54,6 +54,7 @@ export const EXTRACT_PROMPT = `You are reading a cancer patient's medical docume
 Rules:
 - Use only what the documents say. If something is not stated, use null (or an empty list). Never guess values that are not written.
 - Copy medical results as written, e.g. "HER2 negative (IHC 1+)", "EGFR exon 19 deletion", "PD-L1 TPS 30%".
+- city: the city where the patient lives (from their address), not the hospital's city.
 - cancerType: a short search term for a trial registry, e.g. "breast cancer", "non-small cell lung cancer", "head and neck cancer", "acute myeloid leukemia".
 - stage: as written, including TNM if given. metastatic: true if the documents describe metastatic or stage IV disease, false if they clearly describe non-metastatic disease, otherwise null.
 - treatments: every surgery, chemotherapy, radiation, hormonal, targeted and immunotherapy treatment. Put dates, cycles and the setting (adjuvant, first-line metastatic, ...) in details and the result in outcome (e.g. "progressed after 28 months").
