@@ -5,7 +5,7 @@ import { flushSync } from "react-dom";
 import { UPLOAD_LIMITS } from "@/lib/api";
 import { RequestError, errorMessage, evaluateTrial, extractProfile, findTrials, isAbortError, retryAfter } from "@/lib/client/api";
 import { isAcceptedImage, prepareImages } from "@/lib/client/images";
-import { runWithConcurrency } from "@/lib/client/pool";
+import { createLimiter, runWithConcurrency } from "@/lib/client/pool";
 import { cleanProfile, emptyProfile, normalizeProfile } from "@/lib/client/profile";
 import type { Evaluation, TrialRow } from "@/lib/client/results";
 import type { PatientProfile, Trial } from "@/lib/types";
@@ -64,11 +64,14 @@ export function TrialBridgeApp() {
   const [trials, setTrials] = useState<Trial[]>([]);
   const [evaluations, setEvaluations] = useState<Record<string, Evaluation>>({});
   const [printedAt, setPrintedAt] = useState<string | null>(null);
+  const [firstLikely, setFirstLikely] = useState<string | null>(null);
 
   const nextId = useRef(1);
   const readAbort = useRef<AbortController | null>(null);
   const runAbort = useRef<AbortController | null>(null);
   const matchedProfile = useRef<PatientProfile | null>(null);
+  const limiter = useRef(createLimiter(EVALUATE_CONCURRENCY));
+  const celebrated = useRef(false);
   const topRef = useRef<HTMLDivElement>(null);
 
   // Move focus to the top of each new step (not on first load) so keyboard and screen-reader users start there.
@@ -111,8 +114,10 @@ export function TrialBridgeApp() {
     const room = Math.max(0, UPLOAD_LIMITS.maxImages - uploads.length);
     const taken = accepted.slice(0, room);
     const messages: string[] = [];
-    if (accepted.length < files.length) {
-      messages.push("Only JPG, PNG or WebP photos can be read. For a PDF, take a screenshot of each page.");
+    const rejected = files.filter((f) => !isAcceptedImage(f));
+    if (rejected.length > 0) {
+      const names = rejected.length === 1 ? `“${rejected[0].name}” isn't a photo we can read.` : `${rejected.length} files aren't photos we can read.`;
+      messages.push(`${names} Only JPG, PNG or WebP photos work. For a PDF, take a screenshot of each page.`);
     }
     if (taken.length < accepted.length) messages.push(`You can add up to ${UPLOAD_LIMITS.maxImages} photos at a time.`);
     setNotice(messages.join(" ") || null);
@@ -151,9 +156,12 @@ export function TrialBridgeApp() {
       go("review");
     } catch (error) {
       if (isAbortError(error) || controller.signal.aborted) return;
+      const busy = error instanceof RequestError && error.status === 429;
       setProblem({
-        title: "We couldn't read the reports",
-        message: errorMessage(error),
+        title: busy ? "Gemma is busy right now" : "We couldn't read the reports",
+        message: busy
+          ? "Gemma's free service is answering a lot of people at once. Wait a minute, then try again. Your photos are still here."
+          : errorMessage(error),
         retry: () => void readReports(blobs, previews),
       });
       go("start");
@@ -208,12 +216,21 @@ export function TrialBridgeApp() {
 
   /** Checks one trial; on a rate limit waits as long as Gemma asks and tries again, up to MAX_AUTO_RETRIES times. */
   async function evaluate(p: PatientProfile, trial: Trial, signal: AbortSignal) {
+    const limit = limiter.current;
     for (let attempt = 0; ; attempt++) {
-      setEvaluation(trial.nctId, { state: "checking" });
       try {
-        const { match } = await evaluateTrial(p, trial, signal);
+        const { match } = await limit(() => {
+          if (!signal.aborted) setEvaluation(trial.nctId, { state: "checking" });
+          return evaluateTrial(p, trial, signal);
+        });
         if (signal.aborted) return;
         setEvaluation(trial.nctId, { state: "done", match });
+        if (match.status === "likely" && !celebrated.current) {
+          // The first likely match of this run gets one quiet moment of emphasis, then settles.
+          celebrated.current = true;
+          setFirstLikely(trial.nctId);
+          window.setTimeout(() => setFirstLikely((id) => (id === trial.nctId ? null : id)), 2400);
+        }
         return;
       } catch (error) {
         if (signal.aborted) return;
@@ -246,13 +263,18 @@ export function TrialBridgeApp() {
     const p = cleanProfile(input);
     matchedProfile.current = p;
     setProfile(p);
+    limiter.current = createLimiter(EVALUATE_CONCURRENCY);
+    celebrated.current = false;
+    setFirstLikely(null);
     setSearch({ phase: "searching" });
     setTrials([]);
     setEvaluations({});
     go("results");
     try {
-      const response = await findTrials(p, controller.signal);
+      const found = await findTrials(p, controller.signal);
       if (controller.signal.aborted) return;
+      // Older servers don't send screenedOut: treat it as nothing set aside.
+      const response = { ...found, screenedOut: found.screenedOut ?? [] };
       setTrials(response.trials);
       setEvaluations(Object.fromEntries(response.trials.map((t) => [t.nctId, { state: "queued" } as Evaluation])));
       setSearch({ phase: "ready", response });
@@ -271,6 +293,16 @@ export function TrialBridgeApp() {
   function retryTrial(trial: Trial) {
     const signal = runAbort.current?.signal;
     if (matchedProfile.current && signal && !signal.aborted) void evaluate(matchedProfile.current, trial, signal);
+  }
+
+  /** A trial the quick screen set aside joins the normal queue: same checks, same states, same limit. */
+  function checkAnyway(trial: Trial) {
+    const signal = runAbort.current?.signal;
+    if (!matchedProfile.current || !signal || signal.aborted) return;
+    if (trials.some((t) => t.nctId === trial.nctId)) return;
+    setTrials((prev) => [...prev, trial]);
+    setEvaluation(trial.nctId, { state: "queued" });
+    void evaluate(matchedProfile.current, trial, signal);
   }
 
   function editProfile() {
@@ -335,6 +367,8 @@ export function TrialBridgeApp() {
             rows={rows}
             onRetrySearch={() => void startMatching(profile)}
             onRetryTrial={retryTrial}
+            onCheckAnyway={checkAnyway}
+            celebrateId={firstLikely}
             onEditProfile={editProfile}
           />
         )}

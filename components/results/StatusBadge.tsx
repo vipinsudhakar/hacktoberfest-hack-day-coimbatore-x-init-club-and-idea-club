@@ -17,11 +17,12 @@ export const VERDICT_META: Record<Verdict, { label: string; Icon: typeof CheckCi
   unknown: { label: "Needs checking", Icon: HelpCircle, color: "text-ask" },
 };
 
-export function StatusBadge({ status }: { status: MatchStatus }) {
+export function StatusBadge({ status, draw = false }: { status: MatchStatus; draw?: boolean }) {
   const { label, Icon, badge } = STATUS_META[status];
   return (
     <span className={`inline-flex items-center gap-1.5 rounded-sm px-2 py-0.5 text-sm font-semibold ${badge}`}>
-      <Icon size={16} />
+      {/* pathLength 1 lets the tick "draw itself" with a one-unit dash, whatever its real length. */}
+      <Icon size={16} className={draw ? "draw-tick" : undefined} />
       {label}
     </span>
   );

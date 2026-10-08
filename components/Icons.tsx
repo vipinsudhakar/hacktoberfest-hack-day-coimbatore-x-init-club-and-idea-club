@@ -82,7 +82,7 @@ export function CheckCircle(props: IconProps) {
   return (
     <Svg {...props}>
       <circle cx="12" cy="12" r="9" />
-      <path d="m8.5 12.5 2.5 2.5 4.5-5" />
+      <path d="m8.5 12.5 2.5 2.5 4.5-5" pathLength={1} />
     </Svg>
   );
 }
