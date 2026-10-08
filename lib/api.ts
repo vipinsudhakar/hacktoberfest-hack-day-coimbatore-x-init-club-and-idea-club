@@ -21,8 +21,15 @@ export interface ExtractResponse {
 export interface TrialsRequest {
   profile: PatientProfile;
 }
+/** A trial a quick screen set aside as clearly meant for a different group of patients. */
+export interface ScreenedOutTrial {
+  trial: Trial;
+  reason: string;
+}
+
 export interface TrialsResponse {
-  trials: Trial[];
+  trials: Trial[]; // to be checked rule by rule
+  screenedOut: ScreenedOutTrial[]; // shown with their reason; the user can still check them
   searchTerm: string;
   totalFound: number; // before the age/sex filter
   source: "live" | "snapshot"; // snapshot = saved copy used when ClinicalTrials.gov is unreachable

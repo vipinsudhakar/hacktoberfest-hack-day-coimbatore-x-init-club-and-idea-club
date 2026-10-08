@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { GoogleGenAI, ThinkingLevel, createPartFromBase64, type Part } from "@google/genai";
 import type { z } from "zod";
 import type { ImageUpload } from "./api";
@@ -45,6 +46,15 @@ export function extractJson(text: string): string {
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Recent validated answers, kept in memory while the server instance stays warm.
+const MAX_CACHED_ANSWERS = 300;
+const answers = new Map<string, unknown>();
+
+function remember(key: string, value: unknown) {
+  if (answers.size >= MAX_CACHED_ANSWERS) answers.delete(answers.keys().next().value as string);
+  answers.set(key, value);
+}
 
 /** How long to wait before retrying: the delay a 429 asks for, or a short backoff. */
 function retryWaitMs(message: string, attempt: number): number {
@@ -100,13 +110,23 @@ export async function generateJson<T>(
   images: ImageUpload[] = [],
   budgetMs = DEFAULT_BUDGET_MS,
 ): Promise<T> {
+  // The same reports or the same profile + trial give the same answer: reuse it instead of spending quota.
+  const cacheKey = createHash("sha256")
+    .update(GEMMA_MODEL)
+    .update(prompt)
+    .update(images.map((img) => img.data).join("|"))
+    .digest("hex");
+  if (answers.has(cacheKey)) return answers.get(cacheKey) as T;
+
   const deadline = Date.now() + budgetMs;
   const imageParts = images.map((img) => createPartFromBase64(img.data, img.mimeType));
   let feedback = "";
   for (let attempt = 0; attempt < 2; attempt++) {
     const text = await callGemma([...imageParts, { text: feedback ? `${prompt}\n\n${feedback}` : prompt }], deadline);
     try {
-      return schema.parse(JSON.parse(extractJson(text)));
+      const parsed = schema.parse(JSON.parse(extractJson(text)));
+      remember(cacheKey, parsed);
+      return parsed;
     } catch (err) {
       const reason = err instanceof Error ? err.message.slice(0, 400) : "invalid JSON";
       feedback = `Your previous reply could not be used (${reason}). Reply again with only valid JSON in the requested shape.`;
