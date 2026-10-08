@@ -73,8 +73,9 @@ function retryWaitMs(message: string, attempt: number): number {
   return asked != null ? asked * 1000 + 500 : 2000 * (attempt + 1);
 }
 
-async function callGemma(parts: Part[], deadline: number): Promise<string> {
+async function callGemma(parts: Part[], deadline: number, signal?: AbortSignal): Promise<string> {
   for (let attempt = 0; ; attempt++) {
+    if (signal?.aborted) throw new Error("Gemma request aborted: the client went away.");
     const remaining = deadline - Date.now();
     if (remaining < MIN_CALL_MS) throw new Error("Gemma request timed out: no time left in this request.");
     const client = pickClient();
@@ -88,6 +89,7 @@ async function callGemma(parts: Part[], deadline: number): Promise<string> {
           // and the prompts already spell out the medical reasoning steps.
           thinkingConfig: { thinkingLevel: ThinkingLevel.MINIMAL },
           httpOptions: { timeout: remaining },
+          ...(signal ? { abortSignal: signal } : {}),
           ...(jsonModeSupported ? { responseMimeType: "application/json" } : {}),
         },
       });
@@ -120,6 +122,7 @@ export async function generateJson<T>(
   schema: z.ZodType<T>,
   images: ImageUpload[] = [],
   budgetMs = DEFAULT_BUDGET_MS,
+  signal?: AbortSignal,
 ): Promise<T> {
   // The same reports or the same profile + trial give the same answer: reuse it instead of spending quota.
   const cacheKey = createHash("sha256")
@@ -134,7 +137,7 @@ export async function generateJson<T>(
   const imageParts = images.map((img) => createPartFromBase64(img.data, img.mimeType));
   let feedback = "";
   for (let attempt = 0; attempt < 2; attempt++) {
-    const text = await callGemma([...imageParts, { text: feedback ? `${prompt}\n\n${feedback}` : prompt }], deadline);
+    const text = await callGemma([...imageParts, { text: feedback ? `${prompt}\n\n${feedback}` : prompt }], deadline, signal);
     try {
       const parsed = schema.parse(JSON.parse(extractJson(text)));
       remember(cacheKey, parsed);
