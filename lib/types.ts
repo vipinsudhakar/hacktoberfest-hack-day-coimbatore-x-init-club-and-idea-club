@@ -43,6 +43,8 @@ export interface TrialSite {
   facility: string;
   city: string;
   state: string | null;
+  /** Listed as "not yet recruiting": the site is about to open. */
+  openingSoon: boolean;
 }
 
 export interface TrialContact {

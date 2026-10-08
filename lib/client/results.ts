@@ -54,7 +54,27 @@ export function formatPhase(phase: string): string | null {
   return `${early ? "Early phase" : "Phase"} ${num}`;
 }
 
+// Old and new names of Indian cities, so "Bangalore" in a report matches a "Bengaluru" trial site.
+const CITY_ALIASES: Record<string, string> = {
+  bengaluru: "bangalore",
+  bombay: "mumbai",
+  madras: "chennai",
+  "new delhi": "delhi",
+  trivandrum: "thiruvananthapuram",
+  calcutta: "kolkata",
+  gurgaon: "gurugram",
+  cochin: "kochi",
+  mysore: "mysuru",
+  pondicherry: "puducherry",
+  kovai: "coimbatore",
+};
+
+function canonicalCity(name: string): string {
+  const city = name.trim().toLowerCase();
+  return CITY_ALIASES[city] ?? city;
+}
+
 export function sameCity(a: string | null | undefined, b: string | null | undefined): boolean {
   if (!a || !b) return false;
-  return a.trim().toLowerCase() === b.trim().toLowerCase();
+  return canonicalCity(a) === canonicalCity(b);
 }

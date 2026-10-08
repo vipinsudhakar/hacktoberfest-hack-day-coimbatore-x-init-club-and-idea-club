@@ -50,12 +50,3 @@ export function decideMatch(
 
   return { nctId, status, plainSummary, results, blockers, questions };
 }
-
-const STATUS_ORDER: Record<MatchStatus, number> = { likely: 0, possible: 1, not_eligible: 2 };
-
-/** Likely first, then possible with the fewest open questions, then not eligible. */
-export function rankMatches(matches: TrialMatch[]): TrialMatch[] {
-  return [...matches].sort(
-    (a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status] || a.questions.length - b.questions.length,
-  );
-}

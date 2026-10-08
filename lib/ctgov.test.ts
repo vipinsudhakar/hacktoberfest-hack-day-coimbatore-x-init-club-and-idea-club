@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { broaderSearchTerm, filterByAgeAndSex, orderForChecking, parseAgeYears } from "./ctgov.ts";
+import { broaderSearchTerm, filterByAgeAndSex, orderForChecking, parseAgeYears, toTrial, type CtgovStudy } from "./ctgov.ts";
 import type { Trial } from "./types.ts";
 
 const trial = (nctId: string, overrides: Partial<Trial> = {}): Trial => ({
@@ -14,7 +14,7 @@ const trial = (nctId: string, overrides: Partial<Trial> = {}): Trial => ({
   maxAgeYears: null,
   sex: "ALL",
   eligibilityText: "* rule",
-  indiaSites: [{ facility: "Hospital", city: "Chennai", state: null }],
+  indiaSites: [{ facility: "Hospital", city: "Chennai", state: null, openingSoon: false }],
   contacts: [],
   url: "",
   ...overrides,
@@ -54,4 +54,32 @@ test("metastatic patients see advanced-disease treatment trials first, early-sta
     { metastatic: true },
   );
   assert.deepEqual(ordered.map((t) => t.nctId), ["METASTATIC", "SURVEY", "EARLY"]);
+});
+
+test("only Indian sites that are recruiting or about to open are kept", () => {
+  const study = (nctId: string, sites: [string, string][]): CtgovStudy => ({
+    protocolSection: {
+      identificationModule: { nctId, briefTitle: nctId },
+      contactsLocationsModule: {
+        locations: sites.map(([country, status], i) => ({ facility: `Site ${i}`, city: "Chennai", country, status })),
+      },
+    },
+  });
+  const mixed = toTrial(
+    study("MIXED", [
+      ["India", "NOT_YET_RECRUITING"],
+      ["India", "RECRUITING"],
+      ["India", "WITHDRAWN"],
+      ["United States", "RECRUITING"],
+    ]),
+  );
+  assert.deepEqual(
+    mixed.indiaSites.map((s) => [s.facility, s.openingSoon]),
+    [
+      ["Site 1", false],
+      ["Site 0", true],
+    ],
+  );
+  const closed = toTrial(study("CLOSED", [["India", "ACTIVE_NOT_RECRUITING"], ["India", "TERMINATED"]]));
+  assert.deepEqual(closed.indiaSites, []);
 });

@@ -2,7 +2,7 @@ import { Info } from "./Icons";
 
 export const DISCLAIMER_LEAD = "Not medical advice.";
 export const DISCLAIMER_BODY =
-  "TrialBridge is an AI screening aid. The AI can misread reports or rules, so every result means the patient may qualify, never that they do. Only the patient's oncologist and the trial team can confirm eligibility.";
+  "TrialBridge is an AI screening aid. The AI can misread reports or rules, so every result means the patient may qualify, never that they do. Only the patient's oncologist and the trial team can confirm eligibility. Uploaded reports are sent to Google's Gemini API, where Gemma 4 reads them.";
 
 export function Disclaimer({ className = "" }: { className?: string }) {
   return (

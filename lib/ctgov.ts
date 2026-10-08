@@ -35,7 +35,7 @@ export function parseAgeYears(age: string | undefined): number | null {
 }
 
 // Only the parts of the API's study record that we read.
-interface Study {
+export interface CtgovStudy {
   protocolSection: {
     identificationModule: { nctId: string; briefTitle: string };
     descriptionModule?: { briefSummary?: string };
@@ -50,18 +50,19 @@ interface Study {
   };
 }
 
-export function toTrial(study: Study): Trial {
+export function toTrial(study: CtgovStudy): Trial {
   const p = study.protocolSection;
   const eligibility = p.eligibilityModule ?? {};
-  const locations = p.contactsLocationsModule?.locations ?? [];
-  // Prefer sites that are actively recruiting, but keep the others when none are.
-  const india = locations.filter((l) => l.country === "India");
-  const recruiting = india.filter((l) => !l.status || l.status === "RECRUITING" || l.status === "NOT_YET_RECRUITING");
-  const indiaSites: TrialSite[] = (recruiting.length ? recruiting : india).map((l) => ({
-    facility: l.facility ?? "Site name not listed",
-    city: l.city ?? "",
-    state: l.state ?? null,
-  }));
+  // Only Indian sites that are recruiting or about to open; searchTrials drops trials without one.
+  const indiaSites: TrialSite[] = (p.contactsLocationsModule?.locations ?? [])
+    .filter((l) => l.country === "India" && (l.status === "RECRUITING" || l.status === "NOT_YET_RECRUITING"))
+    .map((l) => ({
+      facility: l.facility ?? "Site name not listed",
+      city: l.city ?? "",
+      state: l.state ?? null,
+      openingSoon: l.status === "NOT_YET_RECRUITING",
+    }))
+    .sort((a, b) => Number(a.openingSoon) - Number(b.openingSoon));
   const contacts: TrialContact[] = (p.contactsLocationsModule?.centralContacts ?? []).map((c) => ({
     name: c.name ?? null,
     phone: c.phone ?? null,
@@ -86,7 +87,7 @@ export function toTrial(study: Study): Trial {
   };
 }
 
-/** Every recruiting trial with a site in India whose conditions match the search term. */
+/** Every recruiting trial with an Indian site that is recruiting or about to open, matching the search term. */
 export async function searchTrials(searchTerm: string): Promise<Trial[]> {
   const trials: Trial[] = [];
   let pageToken: string | undefined;
@@ -104,7 +105,7 @@ export async function searchTrials(searchTerm: string): Promise<Trial[]> {
       signal: AbortSignal.timeout(20_000),
     });
     if (!response.ok) throw new Error(`ClinicalTrials.gov returned ${response.status}`);
-    const data = (await response.json()) as { studies?: Study[]; nextPageToken?: string };
+    const data = (await response.json()) as { studies?: CtgovStudy[]; nextPageToken?: string };
     trials.push(...(data.studies ?? []).map(toTrial));
     pageToken = data.nextPageToken;
     if (!pageToken) break;

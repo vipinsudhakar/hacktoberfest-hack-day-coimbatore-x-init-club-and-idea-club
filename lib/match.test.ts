@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { decideMatch, rankMatches, toVerdict, type RuleAssessment } from "./match.ts";
+import { decideMatch, toVerdict, type RuleAssessment } from "./match.ts";
 import type { Criterion } from "./types.ts";
 
 const rules: Criterion[] = [
@@ -50,17 +50,4 @@ test("a failed rule -> not eligible, listed as a blocker; missing assessments be
   assert.equal(m.status, "not_eligible");
   assert.deepEqual(m.blockers.map((b) => b.id), [3]);
   assert.equal(m.results.find((r) => r.id === 2)!.verdict, "unknown");
-});
-
-test("ranking: likely, then possible with fewer questions, then not eligible", () => {
-  const make = (nctId: string, status: "likely" | "possible" | "not_eligible", q: number) => ({
-    nctId,
-    status,
-    plainSummary: "",
-    results: [],
-    blockers: [],
-    questions: Array.from({ length: q }, (_, i) => `q${i}`),
-  });
-  const ranked = rankMatches([make("A", "not_eligible", 0), make("B", "possible", 3), make("C", "likely", 0), make("D", "possible", 1)]);
-  assert.deepEqual(ranked.map((m) => m.nctId), ["C", "D", "B", "A"]);
 });

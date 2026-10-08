@@ -14,6 +14,11 @@ function SiteItem({ site, near }: { site: TrialSite; near: boolean }) {
       <MapPin size={18} className="mt-0.5 shrink-0 text-ink-subtle" />
       <span>
         {site.facility} <span className="text-ink-subtle">— {[site.city, site.state].filter(Boolean).join(", ")}</span>
+        {site.openingSoon && (
+          <span className="ml-2 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold text-amber-950 ring-1 ring-amber-200">
+            Opening soon
+          </span>
+        )}
         {near && (
           <span className="ml-2 rounded-full bg-brand-100 px-2 py-0.5 text-xs font-semibold text-brand-800">
             In your city

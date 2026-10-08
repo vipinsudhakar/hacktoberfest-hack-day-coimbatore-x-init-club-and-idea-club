@@ -93,7 +93,7 @@ export function DoctorSummary({
             {trial.indiaSites.length > 0 && (
               <p className="mt-1">
                 <strong>Sites:</strong>{" "}
-                {join(trial.indiaSites.map((s) => `${s.facility} (${join([s.city, s.state], ", ")})`))}
+                {join(trial.indiaSites.map((s) => `${s.facility} (${join([s.city, s.state], ", ")})${s.openingSoon ? ", opening soon" : ""}`))}
               </p>
             )}
             {trial.contacts.length > 0 && (

@@ -4,7 +4,7 @@
 
 ## Team
 
-**Team Name:** [Team Name]
+**Team Name:** Latent
 
 
 | Member | Contribution   |
@@ -32,7 +32,7 @@ TrialBridge turns a patient's reports into a short list of trials worth asking t
 1. The patient or caregiver adds photos of the reports (pathology, scans, clinic summaries, blood tests).
 2. Gemma 4 reads them into a structured profile: cancer type, stage, biomarkers, every line of treatment and how it went, ECOG, labs. It also shows the exact text it read each value from.
 3. The user checks and corrects the profile. Nothing is matched until a person has reviewed what the AI read.
-4. TrialBridge pulls every trial for that cancer that is **recruiting in India right now** from the live ClinicalTrials.gov registry, and drops the ones the patient can't join because of age or sex.
+4. TrialBridge pulls every trial for that cancer that is **recruiting, with a site in India that is recruiting or about to open**, from the live ClinicalTrials.gov registry. Sites about to open are marked "opening soon". It then drops the trials the patient can't join because of age or sex.
 5. For each trial, Gemma 4 judges the patient against **each eligibility rule separately**. Every trial ends up as *likely match*, *possible match* (with the open points turned into questions for the doctor) or *not eligible* (with the rule that rules it out).
 6. The results list the Indian hospitals running each trial and the trial contacts, and can be printed as a one-page summary to take to the oncologist.
 
@@ -40,7 +40,7 @@ TrialBridge turns a patient's reports into a short list of trials worth asking t
 
 - **Reads real reports:** photos or screenshots of medical documents, read by an open-weight multimodal model.
 - **Human check before matching:** an editable profile with "what Gemma read" evidence quotes.
-- **Live registry data:** recruiting trials with sites in India from the ClinicalTrials.gov API, with a saved copy as a fallback when the registry can't be reached.
+- **Live registry data:** recruiting trials with an open (or about-to-open) site in India, from the ClinicalTrials.gov API, with a saved copy as a fallback when the registry can't be reached.
 - **Rule-by-rule explanations:** a ✓ / ✗ / ? checklist for every rule, a plain-language reason for each, and the profile value it relied on.
 - **Questions for the doctor:** rules the reports don't settle become plain questions, e.g. "What is my ECOG performance status?".
 - **Printable oncologist summary:** the profile, the likely and possible trials, their Indian sites and contacts, and the open questions.
@@ -50,7 +50,7 @@ TrialBridge turns a patient's reports into a short list of trials worth asking t
 
 - **Explainable matching instead of a verdict.** Research prototypes have shown that language models can match patients to trials. TrialBridge makes every decision checkable: the trial's rules are split into individual rules by plain code, and the model judges each one against the profile with a reason and evidence. One rule that fails makes the trial "not eligible", and the UI shows exactly which one.
 - **Starts from what patients actually have.** That's photos of paper reports, not a structured medical record.
-- **Focused on India.** It only shows trials that are recruiting with a site in India, and names the hospitals.
+- **Focused on India.** It only shows recruiting trials with an Indian site that is recruiting or about to open, and names the hospitals. Trials whose Indian sites are closed or withdrawn are left out.
 - **Open-weight model.** Gemma 4 is released under Apache 2.0, so a hospital could run the same model on its own servers and keep reports in-house. This build calls Gemma 4 through the hosted Gemini API.
 - **Hard to do with a chat assistant.** It pulls live registry data, checks every rule of 20+ trials in parallel, and produces a consistent, printable result.
 
@@ -95,16 +95,18 @@ If a category or technology is not implemented in the project, specify `N/A` ins
 ### How It Works
 
 - **`app/api/extract`** sends the report images and an extraction prompt to Gemma 4 and returns a `PatientProfile`. The prompt tells the model to copy values as written, use null for anything not stated, and quote its evidence.
-- **`app/api/trials`** searches ClinicalTrials.gov for recruiting trials with a site in India (`lib/ctgov.ts`). It widens the search term if a very specific one finds nothing (e.g. "invasive ductal carcinoma of breast" becomes "breast cancer"), filters by age and sex, and puts trials for the patient's stage first. If the registry can't be reached, it answers from `data/ctgov-snapshot.json` (refresh with `npm run snapshot`).
+- **`app/api/trials`** searches ClinicalTrials.gov for recruiting trials and keeps only those with an Indian site that is recruiting or about to open (`lib/ctgov.ts`). It widens the search term if a very specific one finds nothing (e.g. "invasive ductal carcinoma of breast" becomes "breast cancer"), filters by age and sex, and puts trials for the patient's stage first. If the registry can't be reached, it answers from `data/ctgov-snapshot.json` (refresh with `npm run snapshot`).
 - **`lib/criteria.ts`** splits each trial's loosely formatted eligibility text into individual inclusion and exclusion rules. It handles nested sub-rules, numbered lists, escaped characters and "other criteria may apply" notes.
-- **`app/api/evaluate`** checks one trial: Gemma 4 receives the profile and the numbered rules and answers, for each rule, whether it holds for the patient (`yes` / `no` / `unknown`), plus a reason, evidence and a question for unknowns. **`lib/match.ts`** turns that into pass / fail / unknown per rule and a trial status.
+- **`app/api/evaluate`** checks one trial: Gemma 4 receives the profile and the numbered rules (in parallel batches of 20 for long lists) and answers, for each rule, whether it holds for the patient (`yes` / `no` / `unknown`), plus a reason, evidence and a question for unknowns. **`lib/match.ts`** turns that into pass / fail / unknown per rule and a trial status.
 - **The UI** (`components/`) runs the evaluate calls six at a time and shows results as they arrive. It also holds the profile editor and the print layout.
 
 ### Technical Decisions
 
 - **The model judges rules, code decides the outcome.** Splitting rules and combining verdicts are plain, unit-tested code. The model only answers one narrow question per rule, which keeps results explainable and consistent.
 - **No double negatives.** For an exclusion rule the model is asked whether the exclusion *applies*, not whether the patient "passes" it. `lib/match.ts` flips the answer, which avoids a common source of errors with exclusion criteria.
-- **One trial per request, several in parallel from the browser.** The UI shows progress, no single server request runs long, and one failed trial can be retried without redoing the rest.
+- **One trial per request, several in parallel from the browser.** The UI shows progress, and one failed trial can be retried without redoing the rest.
+- **A fixed time budget per request.** All Gemma attempts for one request (retries included) share a 55 s budget, under the route's 60 s limit, so a slow reply ends in a clear JSON error rather than a hosting timeout. Long rule lists are checked in parallel batches of 20; the longest trial we found (62 rules) finishes in about 35 s.
+- **Every rule must be answered.** A reply that skips any rule id is rejected and retried, so a missed rule never quietly turns into "possible".
 - **Minimal thinking mode.** With the model's default settings, checking 4–5 trials in parallel took about 3 minutes per trial. With thinking set to minimal (the medical reasoning hints are written into the prompt instead), one check took 26 s and used no thinking tokens, and 4 trials finished in 42 s in parallel. Each Gemma call also has a 50 s timeout.
 - **Lenient parsing, strict use.** Replies are validated with zod. A malformed field falls back to "not stated", and an unusable reply is retried once with the validation error attached.
 - **Photos are shrunk in the browser** (longest side 1600 px, JPEG) to stay within hosting request-size limits and keep uploads fast on mobile data.
@@ -122,7 +124,7 @@ Everything in this branch was built on 8 October 2026 during the Hack Day:
 
 **Checks on 8 Oct 2026 (local):**
 - **In the browser, end to end:** for the synthetic metastatic breast cancer patient, the profile was read in about 35 s, and 21 recruiting trials in India were checked in about 2 minutes. The trial the sample was written to fit, NCT06312176 (HR+/HER2− metastatic breast cancer after CDK4/6 inhibitor progression), came out as a likely match.
-- **Through the API:** an early-stage trial (NCT05827081) and a triple-negative trial (NCT06103864) came out as not eligible, citing the stage and receptor rules.
+- **Through the API:** an early-stage trial (NCT02992574) and a triple-negative trial (NCT06103864) came out as not eligible, citing the stage and receptor rules.
 
 ### Team Contributions
 
@@ -234,24 +236,24 @@ TrialBridge is a screening aid, not medical advice. Only the trial team can conf
 
 ## Submission Checklist
 
-- [ ] Project title and description added
-- [ ] All team members listed
-- [ ] Problem clearly explained
-- [ ] Reason for choosing the problem explained
-- [ ] Solution and key features documented
-- [ ] Innovation and differentiation explained
-- [ ] Architecture included
-- [ ] Technical implementation documented
-- [ ] Work completed during the hackathon documented
+- [x] Project title and description added
+- [x] All team members listed
+- [x] Problem clearly explained
+- [x] Reason for choosing the problem explained
+- [x] Solution and key features documented
+- [x] Innovation and differentiation explained
+- [x] Architecture included
+- [x] Technical implementation documented
+- [x] Work completed during the hackathon documented
 - [ ] Team contributions documented
 - [ ] Working application is functional
 - [ ] Live application link added where applicable
 - [ ] Demo video added
-- [ ] AI and open-source components documented
+- [x] AI and open-source components documented
 - [ ] Setup and usage instructions tested
-- [ ] Challenges and learnings documented
+- [x] Challenges and learnings documented
 - [ ] Devpost submission completed
 - [ ] Devpost link added
-- [ ] Credits added
-- [ ] License added
+- [x] Credits added
+- [x] License added
 - [ ] Repository is organized and complete

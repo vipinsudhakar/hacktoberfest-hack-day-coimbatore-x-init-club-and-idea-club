@@ -7,6 +7,8 @@ import { assessmentSchema, evaluatePrompt } from "@/lib/prompts";
 
 export const maxDuration = 60;
 
+const RULES_PER_CALL = 20;
+
 export async function POST(request: Request) {
   let body: Partial<EvaluateRequest>;
   try {
@@ -28,8 +30,18 @@ export async function POST(request: Request) {
   }
 
   try {
-    const reply = await generateJson(evaluatePrompt(profile, trial, criteria), assessmentSchema);
-    const match = decideMatch(trial.nctId, reply.plainSummary, criteria, reply.results);
+    // Long rule lists (some trials have 60+) are checked in parallel batches so each Gemma call
+    // finishes well inside the request's time budget.
+    const batches = Array.from({ length: Math.ceil(criteria.length / RULES_PER_CALL) }, (_, i) =>
+      criteria.slice(i * RULES_PER_CALL, (i + 1) * RULES_PER_CALL),
+    );
+    const replies = await Promise.all(
+      batches.map((batch) =>
+        generateJson(evaluatePrompt(profile, trial, batch), assessmentSchema(batch.map((c) => c.id))),
+      ),
+    );
+    const plainSummary = replies.find((r) => r.plainSummary)?.plainSummary ?? "";
+    const match = decideMatch(trial.nctId, plainSummary, criteria, replies.flatMap((r) => r.results));
     return Response.json({ match } satisfies EvaluateResponse);
   } catch (err) {
     console.error(`evaluate ${trial.nctId} failed:`, err);

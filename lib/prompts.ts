@@ -43,7 +43,7 @@ export const profileSchema = z.object({
     }),
   ),
   ecog: numberIn(0, 5),
-  labs: listOf(z.object({ name: z.string(), value: z.coerce.string(), unit: text })),
+  labs: listOf(z.object({ name: z.string(), value: z.union([z.string(), z.number()]).transform(String), unit: text })),
   comorbidities: textList,
   otherFindings: textList,
   evidence: listOf(z.object({ field: z.string(), quote: z.string() })),
@@ -81,24 +81,30 @@ Reply with only a JSON object with exactly these keys:
   "evidence": [{"field": string, "quote": string}]
 }`;
 
-export const assessmentSchema = z
-  .object({
-    plainSummary: z.string().catch(""),
-    results: listOf(
-      z.object({
-        id: z.coerce.number().int(),
-        holds: z.preprocess(lower, z.enum(["yes", "no", "unknown"])).catch("unknown"),
-        siteCheck: z.boolean().catch(false),
-        reason: z.string().catch(""),
-        evidence: z.string().nullable().catch(null),
-        question: z.string().nullable().catch(null),
-      }),
-    ),
-  })
-  .refine((reply) => reply.results.length > 0, "results must contain one entry per rule") as unknown as z.ZodType<{
-  plainSummary: string;
-  results: RuleAssessment[];
-}>;
+const assessmentReply = z.object({
+  plainSummary: z.string().catch(""),
+  results: listOf(
+    z.object({
+      id: z.coerce.number().int(),
+      holds: z.preprocess(lower, z.enum(["yes", "no", "unknown"])).catch("unknown"),
+      siteCheck: z.boolean().catch(false),
+      reason: z.string().catch(""),
+      evidence: z.string().nullable().catch(null),
+      question: z.string().nullable().catch(null),
+    }),
+  ),
+});
+
+/** A reply that skips any of the expected rule ids is rejected, so generateJson retries it. */
+export function assessmentSchema(ruleIds: number[]) {
+  return assessmentReply.superRefine((reply, ctx) => {
+    const answered = new Set(reply.results.map((r) => r.id));
+    const missing = ruleIds.filter((id) => !answered.has(id));
+    if (missing.length) {
+      ctx.addIssue({ code: "custom", message: `results is missing rule ids ${missing.join(", ")}` });
+    }
+  }) as unknown as z.ZodType<{ plainSummary: string; results: RuleAssessment[] }>;
+}
 
 export function evaluatePrompt(profile: PatientProfile, trial: Trial, criteria: Criterion[]): string {
   const facts = { ...profile, evidence: undefined }; // the quotes aren't needed to judge rules
@@ -133,6 +139,6 @@ Other fields:
 - question: only when holds is "unknown" and siteCheck is false, a short question the patient can ask their doctor (e.g. "What is my ECOG performance status?"). Otherwise null.
 - plainSummary: one plain-English sentence (at most 30 words) saying what this trial tests and for whom. No jargon.
 
-Reply with only JSON, with exactly one result for each rule id from 1 to ${criteria.length}:
+Reply with only JSON, with exactly one result for each of the ${criteria.length} rules above (use their ids):
 {"plainSummary": string, "results": [{"id": number, "holds": "yes" | "no" | "unknown", "siteCheck": boolean, "reason": string, "evidence": string | null, "question": string | null}]}`;
 }
